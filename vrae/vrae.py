@@ -298,7 +298,7 @@ class VRAE(BaseEstimator, nn.Module):
 
         epoch_loss = 0
         t = 0
-
+        losses = []
         for t, X in enumerate(train_loader):
 
             # Index first element of array to return tensor
@@ -323,8 +323,10 @@ class VRAE(BaseEstimator, nn.Module):
                 print('Batch %d, loss = %.4f, recon_loss = %.4f, kl_loss = %.4f' % (t + 1, loss.item(),
                                                                                     recon_loss.item(), kl_loss.item()))
 
-        print('Average loss: {:.4f}'.format(epoch_loss / t))
+        average_loss = epoch_loss / t
+        print('Average loss: {:.4f}'.format(average_loss))
 
+        return average_loss
 
     def fit(self, dataset, save = False):
         """
@@ -340,10 +342,33 @@ class VRAE(BaseEstimator, nn.Module):
                                   shuffle = True,
                                   drop_last=True)
 
+        MSE = torch.nn.MSELoss()
+        mses = []
         for i in range(self.n_epochs):
             print('Epoch: %s' % i)
 
-            self._train(train_loader)
+            average_loss = self._train(train_loader)
+            if i % 10 == 0:
+                self.is_fitted = True
+                recons = self.reconstruct(dataset)
+                print(dataset.tensors[0].shape[0])
+                mses.append(MSE(torch.tensor(recons).permute(1,0,2), dataset.tensors[0]) / dataset.tensors[0].shape[0])
+                self.is_fitted = False
+        with open('mses.txt', 'w') as myFile:
+            for elem in mses:
+                myFile.write(str(float(elem))+'\n')
+
+#            losses.append(average_loss)
+#            if len(losses) > 5:
+#                loss_window = np.array(losses[-5:])
+#                change = loss_window[1:] - loss_window[:-1]
+#                average_percent_change = np.average(change) / np.max(np.abs(change))
+#                if np.abs(average_percent_change) < 0.10:
+#                    print('added to stop counter')
+#                    stop_counter += 1
+#                if stop_counter == 5:
+#                    print('Stopping point reached')
+#                    break
 
         self.is_fitted = True
         if save:
