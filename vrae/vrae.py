@@ -220,6 +220,7 @@ class VRAE(BaseEstimator, nn.Module):
         self.max_grad_norm = max_grad_norm
         self.is_fitted = False
         self.dload = dload
+        self.all_loss = []
 
         if self.use_cuda:
             self.cuda()
@@ -319,9 +320,9 @@ class VRAE(BaseEstimator, nn.Module):
 
             self.optimizer.step()
 
-            if (t + 1) % self.print_every == 0:
-                print('Batch %d, loss = %.4f, recon_loss = %.4f, kl_loss = %.4f' % (t + 1, loss.item(),
-                                                                                    recon_loss.item(), kl_loss.item()))
+            #if (t + 1) % self.print_every == 0:
+                #print('Batch %d, loss = %.4f, recon_loss = %.4f, kl_loss = %.4f' % (t + 1, loss.item(),
+                                                                                    #recon_loss.item(), kl_loss.item()))
 
         average_loss = epoch_loss / t
         print('Average loss: {:.4f}'.format(average_loss))
@@ -344,14 +345,17 @@ class VRAE(BaseEstimator, nn.Module):
 
         MSE = torch.nn.MSELoss()
         mses = []
+        all_loss = []
         for i in range(self.n_epochs):
             print('Epoch: %s' % i)
 
             average_loss = self._train(train_loader)
+            all_loss.append(average_loss)
             if i % 10 == 0:
                 self.is_fitted = True
                 recons = self.reconstruct(dataset)
-                print(dataset.tensors[0].shape[0])
+                #print(recons.shape)
+                #print(dataset.tensors[0].shape)
                 mses.append(MSE(torch.tensor(recons).permute(1,0,2), dataset.tensors[0]) / dataset.tensors[0].shape[0])
                 self.is_fitted = False
         with open('mses.txt', 'w') as myFile:
@@ -370,6 +374,7 @@ class VRAE(BaseEstimator, nn.Module):
 #                    print('Stopping point reached')
 #                    break
 
+        self.all_loss = all_loss
         self.is_fitted = True
         if save:
             self.save('model.pth')
@@ -442,7 +447,7 @@ class VRAE(BaseEstimator, nn.Module):
         raise RuntimeError('Model needs to be fit')
 
 
-    def transform(self, dataset, save = False):
+    def transform(self, dataset, save = False, filename = 'z_run.pkl'):
         """
         Given input dataset, creates dataloader, runs dataloader on `_batch_transform`
         Prerequisite is that model has to be fit
@@ -474,7 +479,7 @@ class VRAE(BaseEstimator, nn.Module):
                         pass
                     else:
                         os.mkdir(self.dload)
-                    z_run.dump(self.dload + '/z_run.pkl')
+                    z_run.dump(self.dload + '/'+filename)
                 return z_run
 
         raise RuntimeError('Model needs to be fit')

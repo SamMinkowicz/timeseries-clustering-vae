@@ -103,16 +103,19 @@ def plot_clustering(z_run, labels, engine ='plotly', download = False, folder_na
         plot_clustering_matplotlib(z_run, labels, download, folder_name)
 
 
-def open_data(direc, ratio_train=0.8, dataset="ECG5000"):
+def open_data(direc, ratio_train=0.8, dataset="ECG5000", filename = "ECG5000"):
     """Input:
     direc: location of the UCR archive
     ratio_train: ratio to split training and testset
     dataset: name of the dataset in the UCR archive"""
-    datadir = direc + '/' + dataset + '/' + dataset
+    datadir = direc + '/' + dataset + '/' + filename
     data_train = np.loadtxt(datadir + '_TRAIN', delimiter=',')
     data_test_val = np.loadtxt(datadir + '_TEST', delimiter=',')[:-1]
+    #print(data_train.shape, data_test_val.shape)
     data = np.concatenate((data_train, ), axis=0)
+    #print(data.shape)
     data = np.expand_dims(data, -1)
+    #print(data.shape)
 
     N, D, _ = data.shape
 
