@@ -221,6 +221,7 @@ class VRAE(BaseEstimator, nn.Module):
         self.is_fitted = False
         self.dload = dload
         self.all_loss = []
+        self.rec_mse = []
 
         if self.use_cuda:
             self.cuda()
@@ -325,7 +326,7 @@ class VRAE(BaseEstimator, nn.Module):
                                                                                     #recon_loss.item(), kl_loss.item()))
 
         average_loss = epoch_loss / t
-        print('Average loss: {:.4f}'.format(average_loss))
+        #print('Average loss: {:.4f}'.format(average_loss))
 
         return average_loss
 
@@ -347,11 +348,16 @@ class VRAE(BaseEstimator, nn.Module):
         mses = []
         all_loss = []
         for i in range(self.n_epochs):
-            print('Epoch: %s' % i)
+            #print('Epoch: %s' % i)
 
             average_loss = self._train(train_loader)
+            
+            if (i + 1) % self.print_every == 0:
+                print('Epoch: %s' % i)
+                print('Average loss: {:.4f}'.format(average_loss))
+                
             all_loss.append(average_loss)
-            if i % 10 == 0:
+            if i % 5 == 0:
                 self.is_fitted = True
                 recons = self.reconstruct(dataset)
                 #print(recons.shape)
@@ -361,6 +367,7 @@ class VRAE(BaseEstimator, nn.Module):
         with open('mses.txt', 'w') as myFile:
             for elem in mses:
                 myFile.write(str(float(elem))+'\n')
+        self.rec_mse = mses
 
 #            losses.append(average_loss)
 #            if len(losses) > 5:
