@@ -19,7 +19,7 @@ class Encoder(nn.Module):
     :param dropout: percentage of nodes to dropout
     :param block: LSTM/GRU block
     """
-    def __init__(self, number_of_features, hidden_size, hidden_layer_depth, latent_length, dropout, block = 'LSTM'):
+    def __init__(self, number_of_features, hidden_size, hidden_layer_depth, latent_length, dropout, block = 'LSTM', output = False):
 
         super(Encoder, self).__init__()
 
@@ -27,6 +27,7 @@ class Encoder(nn.Module):
         self.hidden_size = hidden_size
         self.hidden_layer_depth = hidden_layer_depth
         self.latent_length = latent_length
+        self.output = output
 
         if block == 'LSTM':
             self.model = nn.LSTM(self.number_of_features, self.hidden_size, self.hidden_layer_depth, dropout = dropout)
@@ -41,12 +42,33 @@ class Encoder(nn.Module):
         :param x: input to the encoder, of shape (sequence_length, batch_size, number_of_features)
         :return: last hidden state of encoder, of shape (batch_size, hidden_size)
         """
+	
+        if not self.output:
+            # print('use hidden')
+            _, (h_end, c_end) = self.model(x)
+        
 
-        _, (h_end, c_end) = self.model(x)
-
-        h_end = h_end[-1, :, :]
-        return h_end
-
+            h_end = h_end[-1, :, :]
+            # print(list(h_end.size()))
+            return h_end
+        else:
+            # print('use output')
+            out_h, (_, _) = self.model(x)
+            [_, N, _] = list(out_h.size())
+            #print(list(out_h.size()), N)
+            out_h = out_h.permute(1, 0, 2)
+            #print(list(out_h.size()))
+            out_h = out_h.reshape(N, -1)
+            #print(list(out_h.size()))
+            
+            #out_h = out_h.unsqueeze(0)
+            # print(list(out_h.size()), N, H)
+            #m = nn.Conv2d(10, 1, (1,1)).cuda()
+            #out_2d = m(out_h)
+            #out_2d = out_2d.view(N, H)
+            # print(list(out_2d.size()))
+            return out_h
+            
 
 class Lambda(nn.Module):
     """Lambda module converts output of encoder to latent vector
@@ -54,14 +76,22 @@ class Lambda(nn.Module):
     :param hidden_size: hidden size of the encoder
     :param latent_length: latent vector length
     """
-    def __init__(self, hidden_size, latent_length):
+    def __init__(self, hidden_size, latent_length, seq_length, output = False):
         super(Lambda, self).__init__()
 
         self.hidden_size = hidden_size
         self.latent_length = latent_length
+        self.output = output
+        
+        if not self.output:
+            self.input_size = hidden_size
+        else:
+            self.input_size = hidden_size * seq_length
 
-        self.hidden_to_mean = nn.Linear(self.hidden_size, self.latent_length)
-        self.hidden_to_logvar = nn.Linear(self.hidden_size, self.latent_length)
+        # self.hidden_to_mean = nn.Linear(self.hidden_size, self.latent_length)
+        # self.hidden_to_logvar = nn.Linear(self.hidden_size, self.latent_length)
+        self.hidden_to_mean = nn.Linear(self.input_size, self.latent_length)
+        self.hidden_to_logvar = nn.Linear(self.input_size, self.latent_length)
 
         nn.init.xavier_uniform_(self.hidden_to_mean.weight)
         nn.init.xavier_uniform_(self.hidden_to_logvar.weight)
@@ -172,7 +202,7 @@ class VRAE(BaseEstimator, nn.Module):
     def __init__(self, sequence_length, number_of_features, hidden_size=90, hidden_layer_depth=2, latent_length=20,
                  batch_size=32, learning_rate=0.005, block='LSTM',
                  n_epochs=5, dropout_rate=0., optimizer='Adam', loss='MSELoss',
-                 cuda=False, print_every=100, clip=True, max_grad_norm=5, dload='.'):
+                 cuda=False, print_every=100, clip=True, max_grad_norm=5, dload='.', output = False):
 
         super(VRAE, self).__init__()
 
@@ -193,10 +223,13 @@ class VRAE(BaseEstimator, nn.Module):
                                hidden_layer_depth=hidden_layer_depth,
                                latent_length=latent_length,
                                dropout=dropout_rate,
-                               block=block)
+                               block=block,
+                               output = output)
 
         self.lmbd = Lambda(hidden_size=hidden_size,
-                           latent_length=latent_length)
+                           latent_length=latent_length,
+                           seq_length = sequence_length,
+                           output = output)
 
         self.decoder = Decoder(sequence_length=sequence_length,
                                batch_size = batch_size,
@@ -220,6 +253,7 @@ class VRAE(BaseEstimator, nn.Module):
         self.max_grad_norm = max_grad_norm
         self.is_fitted = False
         self.dload = dload
+        self.output = output
         self.all_loss = []
         self.rec_mse = []
 
