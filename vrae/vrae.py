@@ -398,9 +398,9 @@ class VRAE(BaseEstimator, nn.Module):
                 #print(dataset.tensors[0].shape)
                 mses.append(MSE(torch.tensor(recons).permute(1,0,2), dataset.tensors[0]) / dataset.tensors[0].shape[0])
                 self.is_fitted = False
-        with open('mses.txt', 'w') as myFile:
-            for elem in mses:
-                myFile.write(str(float(elem))+'\n')
+        # with open('mses.txt', 'w') as myFile:
+        #     for elem in mses:
+        #         myFile.write(str(float(elem))+'\n')
         self.rec_mse = mses
 
 #            losses.append(average_loss)
@@ -558,4 +558,7 @@ class VRAE(BaseEstimator, nn.Module):
         :return: None
         """
         self.is_fitted = True
-        self.load_state_dict(torch.load(PATH))
+        if self.use_cuda:
+            self.load_state_dict(torch.load(PATH))
+        else:
+            self.load_state_dict(torch.load(PATH, map_location = torch.device('cpu')))

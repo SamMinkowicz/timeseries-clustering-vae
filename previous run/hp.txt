@@ -133,8 +133,8 @@ loss = 'MSELoss' # options: SmoothL1Loss, MSELoss
 block = 'LSTM' # options: LSTM, GRU
 output = False
 
-Model: vrae_e57_b32_z16_output.pth
-EMG: 12346
+Model: vrae_e57_b32_z16_output.pth, vrae_e2_b32_z16_output.pth, vrae_e6_b32_z16_output.pth
+EMG: 12346, 134567, 123457
 do_pca = F
 single_channel = None
 seq_len = 10
@@ -154,8 +154,8 @@ loss = 'MSELoss' # options: SmoothL1Loss, MSELoss
 block = 'LSTM' # options: LSTM, GRU
 output = True
 
-Model: vrae_e57_b32_z16.pth
-EMG: 12346
+Model: vrae_e57_b32_z16.pth, vrae_e2_b32_z16.pth, vrae_e6_b32_z16.pth, vrae_b32_z16.pth
+EMG: 12346, 134567, 123457, 1234567
 do_pca = F
 single_channel = None
 seq_len = 10
@@ -175,8 +175,8 @@ loss = 'MSELoss' # options: SmoothL1Loss, MSELoss
 block = 'LSTM' # options: LSTM, GRU
 output = False
 
-Model: vrae_e57_b32_z16_pca.pth
-EMG: 12346
+Model: vrae_e57_b32_z16_pca.pth, vrae_e2_b32_z16_pca.pth, vrae_e6_b32_z16_pca.pth
+EMG: 12346, 134567, 123457s
 do_pca = T
 single_channel = None
 seq_len = 10
@@ -195,3 +195,4 @@ max_grad_norm=5
 loss = 'MSELoss' # options: SmoothL1Loss, MSELoss
 block = 'LSTM' # options: LSTM, GRU
 output = False
+

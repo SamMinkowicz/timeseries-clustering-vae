@@ -5,6 +5,7 @@ from torch import from_numpy
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.manifold import TSNE
 from torch.utils.data import DataLoader, TensorDataset
+from seaborn import clustermap
 
 def load_one_dataset(direc = 'data', dataset="EMG", filename = "."):
     """
@@ -147,7 +148,7 @@ def plot_recon_feature(dataset, reconstruction, idx = None):
     plt.show()
 
     
-def plot_recon_metrics(dataset, reconstruction, x_lim = None, verbose = True, plot = True):
+def plot_recon_metrics(dataset, reconstruction, x_lim = None, verbose = False, plot = False):
     """
     Plot correlation, mse, mean.
     
@@ -199,13 +200,13 @@ def plot_recon_metrics(dataset, reconstruction, x_lim = None, verbose = True, pl
             if x_lim:
                 axs[ii].set_xlim(x_lim)
             axs[ii].legend()
+       
+    corr_mean = np.mean(corr_all, axis = 0)
+    mse_mean = np.mean(mse_all, axis = 0)
+    mean_mean = np.mean(mean_all, axis = 0)
     
-    # Print the mean of corr, mse, mean    
-    if verbose:
-        corr_mean = np.mean(corr_all, axis = 0)
-        mse_mean = np.mean(mse_all, axis = 0)
-        mean_mean = np.mean(mean_all, axis = 0)
-        
+    # Print the mean of corr, mse, mean
+    if verbose:   
         for jj in range(num_features):
             print(f'Channel {jj+1}, corr = {corr_mean[jj]:.4f}, '\
                   f'mse = {mse_mean[jj]:4f}, mean = {mean_mean[jj]:.4f}.')
@@ -268,3 +269,103 @@ def visualize(z_run, y, inv_bhvs, one_in = 4, perplexity=80, n_iter=3000):
     axs[0].legend()
     axs[1].legend()
     plt.show()
+    
+
+def compare_label_tSNE(dp, label1, inv1, color1, name1, label2, inv2, color2, name2,
+                       one_in = 4, perplexity=80, n_iter=3000):
+    """
+    Plot tSNE of data, coloring with two set of labels.
+    
+    dp: num_datapoints by num_features ndarray.
+    label1, label2: num_datapoints by 1 ndarray, containing int labels for each datapoint.
+                    If more than 10 classes, don't plot legend.
+    inv1, inv2: inverse label, dict with labels in key and class names in value, used for legend.
+                If None, labeled with int label value.
+    color1, color2: list of colors. If None, use pre-chosen colors.
+    name1, name2: string for figure title.
+    one_in: default use one in every 4 dp for tSNE.
+    
+    """
+    
+    # Downsample datapoints
+    dp_down = dp[::one_in, :]
+    label1 = label1[::one_in, :]
+    label2 = label2[::one_in, :]
+    
+    # Fit tSNE
+    dp_tsne = TSNE(perplexity=perplexity, min_grad_norm=1E-12, n_iter=n_iter).fit_transform(dp_down)
+    
+    # Plot
+    all_colors = ['b','g','r','c','m','y','darkgrey']
+    fig, axs = plt.subplots(1,2, figsize=(20,10))
+    
+    # If inverse label not given, make a dict with the same int label as each key and velue
+    if not inv1:
+        inv1 = {int(k): k for k in np.unique(label)}
+        
+    # Set color
+    if not color1:
+        color1 = all_colors
+        
+    # Plot first one    
+    for ii in np.unique(label1):
+        ii = int(ii)
+        x_tsne = dp_tsne[:,0].reshape(-1,1)[label1 == ii]
+        y_tsne = dp_tsne[:,1].reshape(-1,1)[label1 == ii]
+        axs[0].scatter(x_tsne, y_tsne, c=color1[ii], marker='.', label = inv1[ii], linewidths=None)
+        #axs[1].scatter(x_tsne, y_tsne, c=all_colors[ii], marker='.', label = inv_bhvs[ii], linewidths=None)
+        if len(np.unique(label1)) < 11:
+            axs[0].legend()
+    
+    # Same
+    if not inv2:
+        inv2 = {int(k): k for k in np.unique(label2)}
+    if not color2:
+        color2 = all_colors
+        
+    for jj in np.unique(label2):
+        jj = int(jj)
+        x_tsne = dp_tsne[:,0].reshape(-1,1)[label2 == jj]
+        y_tsne = dp_tsne[:,1].reshape(-1,1)[label2 == jj]
+        axs[1].scatter(x_tsne, y_tsne, c=color2[jj], marker='.', label = inv2[jj], linewidths=None)
+        if len(np.unique(label2)) < 11:
+            axs[1].legend()
+
+    axs[0].set_title(name1)
+    axs[1].set_title(name2)
+    plt.show()
+    
+    
+def plot_confusion_matrix(label1, label2, h_clustering = True, tick_label, figsize = (18,6)):
+    """
+    Plot confusion matric, where the color is the probability of label2 belongs to label1.
+    
+    ##### Need to change the xy tick labels #####
+    
+    label1, label2: num_datapoints by 1 ndarray, containing int labels for each datapoint.
+                    If more than 10 classes, don't plot legend.
+    tick_label is only given when label1 is true label and as bhvs.keys().
+    """
+    
+    n1 = np.unique(label1).shape[0]
+    n2 = np.unique(label2).shape[0]
+    confusion = np.zeros((n1, n2))
+    
+    for ii in range(n1):
+        class1 = np.unique(label1)[ii]
+        for jj in range(n2):
+            class2 = np.unique(label2)[jj]
+            nn = sum(np.logical_and((label1 == class1), (label2 == class2)))[0]
+            confusion[ii, jj] = nn
+            
+    confusion_prob = confusion / np.sum(confusion, axis=0)
+    #plt.matshow(confusion_prob[:, :])
+    if h_clustering:
+        ax = clustermap(confusion_prob, row_cluster=False, xticklabels=1, figsize=figsize)
+        ax.ax_cbar.set_position((0.15, .2, .03, .4))
+        if tick_label:
+            ax.ax_heatmap.set_yticklabels(tick_label, rotation=0)
+    else:
+        prob = np.max(confusion_prob, axis = 0)
+        idx = np.argsort(prob)
+        plt.matshow(confusion_prob[:, idx][:, ::-1])
