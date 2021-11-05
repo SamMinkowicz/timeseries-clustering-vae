@@ -130,7 +130,7 @@ class Decoder(nn.Module):
         super(Decoder, self).__init__()
 
         self.hidden_size = hidden_size
-        self.batch_size = batch_size
+        # self.batch_size = batch_size
         self.sequence_length = sequence_length
         self.hidden_layer_depth = hidden_layer_depth
         self.latent_length = latent_length
@@ -147,8 +147,8 @@ class Decoder(nn.Module):
         self.latent_to_hidden = nn.Linear(self.latent_length, self.hidden_size)
         self.hidden_to_output = nn.Linear(self.hidden_size, self.output_size)
 
-        self.decoder_inputs = torch.zeros(self.sequence_length, self.batch_size, 1, requires_grad=True).type(self.dtype)
-        self.c_0 = torch.zeros(self.hidden_layer_depth, self.batch_size, self.hidden_size, requires_grad=True).type(self.dtype)
+        # self.decoder_inputs = torch.zeros(self.sequence_length, self.batch_size, 1, requires_grad=True).type(self.dtype)
+        # self.c_0 = torch.zeros(self.hidden_layer_depth, self.batch_size, self.hidden_size, requires_grad=True).type(self.dtype)
 
         nn.init.xavier_uniform_(self.latent_to_hidden.weight)
         nn.init.xavier_uniform_(self.hidden_to_output.weight)
@@ -159,7 +159,11 @@ class Decoder(nn.Module):
         :param latent: latent vector
         :return: outputs consisting of mean and std dev of vector
         """
+        self.batch_size = latent.shape[0]
         h_state = self.latent_to_hidden(latent)
+        
+        self.decoder_inputs = torch.zeros(self.sequence_length, self.batch_size, 1, requires_grad=True).type(self.dtype)
+        self.c_0 = torch.zeros(self.hidden_layer_depth, self.batch_size, self.hidden_size, requires_grad=True).type(self.dtype)
 
         if isinstance(self.model, nn.LSTM):
             h_0 = torch.stack([h_state for _ in range(self.hidden_layer_depth)])
@@ -194,15 +198,19 @@ class VRAE(BaseEstimator, nn.Module):
     :param optimizer: ADAM/ SGD optimizer to reduce the loss function
     :param loss: SmoothL1Loss / MSELoss / ReconLoss / any custom loss which inherits from `_Loss` class
     :param boolean cuda: to be run on GPU or not
-    :param print_every: The number of iterations after which loss should be printed
+    :param print_every: The number of epochs after which loss should be printed
     :param boolean clip: Gradient clipping to overcome explosion
     :param max_grad_norm: The grad-norm to be clipped
     :param dload: Download directory where models are to be dumped
+    :param output: If true, use concatenated all hidden states from last layer as input to lambda. If false, use only the hidden state from last timestep.
+    :param all_loss: list to hold all training loss
+    :param val_mse: list to hold mse of validation set, if using validation.
     """
     def __init__(self, sequence_length, number_of_features, hidden_size=90, hidden_layer_depth=2, latent_length=20,
                  batch_size=32, learning_rate=0.005, block='LSTM',
                  n_epochs=5, dropout_rate=0., optimizer='Adam', loss='MSELoss',
-                 cuda=False, print_every=100, clip=True, max_grad_norm=5, dload='.', output = False):
+                 cuda=False, print_every=100, val_every = 5, clip=True, max_grad_norm=5, dload='.', output = False,
+                 reduction = 'mean'):
 
         super(VRAE, self).__init__()
 
@@ -249,13 +257,17 @@ class VRAE(BaseEstimator, nn.Module):
         self.n_epochs = n_epochs
 
         self.print_every = print_every
+        self.val_every = val_every
         self.clip = clip
         self.max_grad_norm = max_grad_norm
         self.is_fitted = False
         self.dload = dload
         self.output = output
         self.all_loss = []
-        self.rec_mse = []
+        self.recon_loss = []
+        self.kl_loss = []
+        self.val_mse = []
+        self.reduction = reduction
 
         if self.use_cuda:
             self.cuda()
@@ -270,7 +282,8 @@ class VRAE(BaseEstimator, nn.Module):
         if loss == 'SmoothL1Loss':
             self.loss_fn = nn.SmoothL1Loss(size_average=False)
         elif loss == 'MSELoss':
-            self.loss_fn = nn.MSELoss(size_average=False)
+            # self.loss_fn = nn.MSELoss(size_average=False)
+            self.loss_fn = nn.MSELoss(reduction=self.reduction)
 
     def __repr__(self):
         return """VRAE(n_epochs={n_epochs},batch_size={batch_size},cuda={cuda})""".format(
@@ -304,6 +317,9 @@ class VRAE(BaseEstimator, nn.Module):
 
         kl_loss = -0.5 * torch.mean(1 + latent_logvar - latent_mean.pow(2) - latent_logvar.exp())
         recon_loss = loss_fn(x_decoded, x)
+        # print(torch.mean((x - x_decoded)**2).item(), torch.sum((x - x_decoded)**2).item(), recon_loss.item(), kl_loss.item())
+        
+        #print(latent_mean.shape, latent_logvar.shape, x_decoded.shape, x.shape, recon_loss, kl_loss)
 
         return kl_loss + recon_loss, recon_loss, kl_loss
 
@@ -329,12 +345,15 @@ class VRAE(BaseEstimator, nn.Module):
 
         :param train_loader:input train loader with shuffle
         :return:
+        Loss averaged across batch.
         """
         self.train()
 
         epoch_loss = 0
+        recon_loss_all = 0
+        kl_loss_all = 0
         t = 0
-        losses = []
+        # losses = []
         for t, X in enumerate(train_loader):
 
             # Index first element of array to return tensor
@@ -345,6 +364,7 @@ class VRAE(BaseEstimator, nn.Module):
 
             self.optimizer.zero_grad()
             loss, recon_loss, kl_loss, _ = self.compute_loss(X)
+            # print(recon_loss.item(), kl_loss)
             loss.backward()
 
             if self.clip:
@@ -352,6 +372,8 @@ class VRAE(BaseEstimator, nn.Module):
 
             # accumulator
             epoch_loss += loss.item()
+            recon_loss_all += recon_loss.item()
+            kl_loss_all += kl_loss.item()
 
             self.optimizer.step()
 
@@ -359,63 +381,62 @@ class VRAE(BaseEstimator, nn.Module):
                 #print('Batch %d, loss = %.4f, recon_loss = %.4f, kl_loss = %.4f' % (t + 1, loss.item(),
                                                                                     #recon_loss.item(), kl_loss.item()))
 
-        average_loss = epoch_loss / t
+        average_loss = epoch_loss / (t+1)
+        average_recon_loss = recon_loss_all / (t+1)
+        average_kl_loss = kl_loss_all / (t+1)
         #print('Average loss: {:.4f}'.format(average_loss))
 
-        return average_loss
+        return average_loss, average_recon_loss, average_kl_loss
 
-    def fit(self, dataset, save = False):
+    def fit(self, train_dataset, val_dataset, save = False):
         """
         Calls `_train` function over a fixed number of epochs, specified by `n_epochs`
 
-        :param dataset: `Dataset` object
+        :param train_dataset: `Dataset` object
+        :param val_dataset: `Dataset` object, if None, don't do validation
         :param bool save: If true, dumps the trained model parameters as pickle file at `dload` directory
         :return:
         """
 
-        train_loader = DataLoader(dataset = dataset,
+        train_loader = DataLoader(dataset = train_dataset,
                                   batch_size = self.batch_size,
                                   shuffle = True,
                                   drop_last=True)
-
-        MSE = torch.nn.MSELoss()
-        mses = []
-        all_loss = []
+        if val_dataset:
+            val_idx = val_dataset.indices
+            val_ori = val_dataset.dataset.tensors[0][val_idx]
+            MSE = torch.nn.MSELoss(reduction=self.reduction)
+        #    mses = []
+            
+        # all_loss = []
         for i in range(self.n_epochs):
             #print('Epoch: %s' % i)
 
-            average_loss = self._train(train_loader)
+            average_loss, average_recon_loss, average_kl_loss = self._train(train_loader)
             
-            if (i + 1) % self.print_every == 0:
-                print('Epoch: %s' % i)
-                print('Average loss: {:.4f}'.format(average_loss))
+            if (i+1) % self.print_every == 0:
+                print('Epoch: %s, ' % i, end = '')
+                print('Average loss: {:.4f}, '.format(average_loss), 'Average recon loss: {:.4f}, '.format(average_recon_loss), 
+                      'Average KL loss: {:.4f}'.format(average_kl_loss))
                 
-            all_loss.append(average_loss)
-            if i % 5 == 0:
+            self.all_loss.append(average_loss)
+            self.recon_loss.append(average_recon_loss)
+            self.kl_loss.append(average_kl_loss)
+            if (i+1) % self.val_every == 0:
                 self.is_fitted = True
-                recons = self.reconstruct(dataset)
-                #print(recons.shape)
-                #print(dataset.tensors[0].shape)
-                mses.append(MSE(torch.tensor(recons).permute(1,0,2), dataset.tensors[0]) / dataset.tensors[0].shape[0])
+                recons = self.reconstruct(val_dataset)
+                # print(torch.tensor(recons).permute(1,0,2).shape, val_dataset.dataset.tensors[0].shape)
+                curr_mse = MSE(torch.tensor(recons).permute(1,0,2), val_ori)
+                self.val_mse.append(float(curr_mse))
                 self.is_fitted = False
+                
         # with open('mses.txt', 'w') as myFile:
         #     for elem in mses:
         #         myFile.write(str(float(elem))+'\n')
-        self.rec_mse = mses
+        #if val_dataset:
+        #    self.val_mse = mses
 
-#            losses.append(average_loss)
-#            if len(losses) > 5:
-#                loss_window = np.array(losses[-5:])
-#                change = loss_window[1:] - loss_window[:-1]
-#                average_percent_change = np.average(change) / np.max(np.abs(change))
-#                if np.abs(average_percent_change) < 0.10:
-#                    print('added to stop counter')
-#                    stop_counter += 1
-#                if stop_counter == 5:
-#                    print('Stopping point reached')
-#                    break
-
-        self.all_loss = all_loss
+        # self.all_loss = all_loss
         self.is_fitted = True
         if save:
             self.save('model.pth')
