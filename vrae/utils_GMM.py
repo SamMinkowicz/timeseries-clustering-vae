@@ -29,6 +29,8 @@ def compare_label_tSNE(dp, label1, inv1, name1, label2, inv2, name2,
     
     # Downsample datapoints
     dp_down = dp[::one_in, :]
+    label1 = label1.reshape(label1.shape[0],1)
+    label2 = label2.reshape(label2.shape[0],1)
     label1 = label1[::one_in, :]
     label2 = label2[::one_in, :]
     
@@ -95,6 +97,9 @@ def plot_confusion_matrix(label1, label2, tick_label, sum_by = 'col', h_clusteri
     tick_label is only given when label1 is true label and as bhvs.keys().
     """
     
+    label1 = label1.reshape(label1.shape[0])
+    label2 = label2.reshape(label2.shape[0])
+    
     n1 = np.unique(label1).shape[0]
     n2 = np.unique(label2).shape[0]
     confusion = np.zeros((n1, n2))
@@ -103,7 +108,7 @@ def plot_confusion_matrix(label1, label2, tick_label, sum_by = 'col', h_clusteri
         class1 = np.unique(label1)[ii]
         for jj in range(n2):
             class2 = np.unique(label2)[jj]
-            nn = sum(np.logical_and((label1 == class1), (label2 == class2)))[0]
+            nn = sum(np.logical_and((label1 == class1), (label2 == class2)))
             confusion[ii, jj] = nn
     if sum_by == 'row':        
         confusion_prob = confusion.T / np.sum(confusion, axis=1)
@@ -117,7 +122,7 @@ def plot_confusion_matrix(label1, label2, tick_label, sum_by = 'col', h_clusteri
         if tick_label:
             ax.ax_heatmap.set_yticklabels(tick_label, rotation=0)
     else:
-        prob = np.max(confusion_prob, axis = 0)
+        prob = np.argmax(confusion_prob, axis = 0)
         idx = np.argsort(prob)
         plt.matshow(confusion_prob[:, idx][:, ::-1])
         

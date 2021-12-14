@@ -332,10 +332,9 @@ def recon_metrics2(dataset, reconstruction):
     term1 = cov_all / (var_X**0.5 * var_rec**0.5) # corr
     term2 = (2 * mean_X * mean_rec) / (mean_X**2 + mean_rec**2) # luminance
     term3 = (2 * var_X**0.5 * var_rec**0.5) / (var_X + var_rec) # contrast
-    uqi_1 = (4 * cov_all * mean_X * mean_rec) / ((var_X + var_rec) * (mean_X**2 + mean_rec**2))
-    uqi_2 = term1 * term2 * term3
+    uqi = term1 * term2 * term3
     
-    return corr_all, R2_all, uqi_1, uqi_2, term1, term2, term3
+    return corr_all, R2_all, uqi, term1, term2, term3
 
         
 def pca_inverse(PCA_obj, reconstruction):
