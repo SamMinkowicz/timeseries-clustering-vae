@@ -33,7 +33,6 @@ def load_training_data(data_path, limb_dict_path, batch_size=32, seq_len=250,
     """
     # TODO ensure matches batch size
     # TODO combine input data from multiple files
-    # TODO add neighboring frame difference feature
 
     # load the np array
     # now is limbs x coordinates x timepoints
@@ -44,6 +43,13 @@ def load_training_data(data_path, limb_dict_path, batch_size=32, seq_len=250,
 
     # now is timepoints x n_features
     x_train = raw_data.reshape((n_features, n_timepoints)).T
+
+    # add frame difference feature
+    difference = np.diff(x_train, axis=1)
+    # pad with the last difference so will match the original shape
+    difference = np.hstack((difference, difference[:, -1][:, None]))
+    x_train = np.hstack((x_train, difference))
+    n_features *= 2
 
     # add distance features
     with open(limb_dict_path, 'rb') as f:
