@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pickle
 
@@ -10,33 +11,10 @@ def compute_limb_distance(poses, limb1, limb2, limb_dict):
     )
 
 
-def load_training_data(data_path, limb_dict_path, batch_size=32, seq_len=250,
-                       trim=True):
-    """
-    Load dataset and preprocess.
-
-    data will be put in form segments * seq_length * features.
-    segments = data total time / seq_length
-    features will be organized like: limb1_x, limb1_y, limb1_z, lib2_x, ...,
-    followed by other features like paw ear distances
-
-    seq_length: should be the same as when converting to vrae format. this is
-                the window size that's used to window the data over time.
-                Sequence length chosen at the first elbow of the
-                autocorrelation of the keypoints over time. Was ~2 seconds
-                with frame rate of 125/s so we choose 250.
-
-    trim: if true, remove the extra part that can't be divided by batch size.
-
-    Return:
-    x_train: data in segments x seq length x features ndarray.
-    """
-    # TODO ensure matches batch size
-    # TODO combine input data from multiple files
-
+def load_single_file(pose_path, limb_dict_path, seq_len):
     # load the np array
     # now is limbs x coordinates x timepoints
-    raw_data = np.load(data_path)
+    raw_data = np.load(pose_path)
 
     n_limbs, n_coordinates, n_timepoints = raw_data.shape
     n_features = n_limbs*n_coordinates
@@ -68,14 +46,51 @@ def load_training_data(data_path, limb_dict_path, batch_size=32, seq_len=250,
 
     # finally is (timepoints / seq_length) x seq_length x n_features
     n_segments = n_timepoints // seq_len
-    x_train = x_train.reshape((n_segments, seq_len, n_features))
+    return x_train.reshape((n_segments, seq_len, n_features))
 
-    return x_train
 
+def load_training_data(data_dir, batch_size=32, seq_len=250,
+                       trim=True):
+    """
+    Load dataset and preprocess.
+
+    data will be put in form segments * seq_length * features.
+    segments = data total time / seq_length
+    features will be organized like: limb1_x, limb1_y, limb1_z, lib2_x, ...,
+    followed by other features like paw ear distances
+
+    seq_length: should be the same as when converting to vrae format. this is
+                the window size that's used to window the data over time.
+                Sequence length chosen at the first elbow of the
+                autocorrelation of the keypoints over time. Was ~2 seconds
+                with frame rate of 125/s so we choose 250.
+
+    trim: if true, remove the extra part that can't be divided by batch size.
+
+    Return:
+    x_train: data in segments x seq length x features ndarray.
+    """
+    # TODO ensure matches batch size
+
+    # get all the files
+    all_x_train = []
+    for f in os.scandir(data_dir):
+        if f.name.endswith('npy'):
+            limbs_file = f.name.replace('npy', 'pickle')
+            limbs_file = limbs_file.replace('pose', 'limbs')
+            limbs_path = os.path.join(data_dir, limbs_file)
+            if not os.path.exists(limbs_path):
+                continue
+            all_x_train.append(
+                load_single_file(f.path, limbs_path, seq_len))
+
+    if all_x_train:
+        return np.vstack(all_x_train)
+    
 
 if __name__ == '__main__':
     x_t = load_training_data(
-        r'E:\sam\anipose4\poses_2021_9_4.npy',
-        r'E:\sam\anipose4\limb_dict.pickle')
-    print(x_t.shape)
-    print(x_t[0, 0, :])
+        r'/home/sam/anipose_out')
+    if x_t is not None:
+        print(x_t.shape)
+        # print(x_t[0, 0, :])

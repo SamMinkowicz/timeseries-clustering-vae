@@ -1,29 +1,3 @@
-# %% [markdown]
-# ## Timeseries clustering
-#
-# Time series clustering is to partition time series data into groups based on similarity or distance, so that time series in the same cluster are similar.
-#
-# Methodology followed:
-# * Use Variational Recurrent AutoEncoder (VRAE) for dimensionality reduction of the timeseries
-# * To visualize the clusters, PCA and t-sne are used
-#
-# Paper:
-# https://arxiv.org/pdf/1412.6581.pdf
-
-# %% [markdown]
-# #### Contents
-#
-# 1. [Import](#Import-required-modules)
-# 2. [Load data and preprocess](#Load-data-and-preprocess)
-# 3. [Initialize VRAE object](#Initialize-VRAE-object)
-# 4. [Fit the model onto dataset](#Fit-the-model-onto-dataset)
-# 5. [Transform the input timeseries to encoded latent vectors](#Transform-the-input-timeseries-to-encoded-latent-vectors)
-# 6. [Save the model to be fetched later](#Save-the-model-to-be-fetched-later)
-
-# %% [markdown]
-# ### Import required modules
-
-# %%
 # Set which gpu to use
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
@@ -45,17 +19,11 @@ from torch.utils.data import DataLoader, TensorDataset
 import time
 
 
-# %% [markdown]
-# ### Download dir
+# Download dir
+dload = r'/home/sam/timeseries-clustering-vae/model_dir'
+data_dir = r'/media/storage/sam/anipose_out'
 
-# %%
-dload = './model_dir'
-data_path = r''
-
-# %% [markdown]
-# ### Hyper parameters
-
-# %%
+# Hyper parameters
 seq_len = 250
 hidden_size = 256
 hidden_layer_depth = 3
@@ -75,23 +43,18 @@ block = 'LSTM' # options: LSTM, GRU
 output = False
 reduction = 'mean'
 
-# %% [markdown]
-# ### Load data and preprocess
+# Load data and preprocess
 
-# %%
-X = utils_sm.load_training_data(data_path=data_path, batch_size=batch_size,
+X = utils_sm.load_training_data(data_dir, batch_size=batch_size,
                                 seq_len=seq_len, trim=True)
 dataset = TensorDataset(torch.from_numpy(X))
 
-# %%
 num_features = X.shape[2]
 
-# %% [markdown]
 # ### Initialize VRAE object
 #
 # VRAE inherits from `sklearn.base.BaseEstimator` and overrides `fit`, `transform` and `fit_transform` functions, similar to sklearn modules
 
-# %%
 from vrae.vrae import VRAE
 vrae = VRAE(sequence_length=seq_len,
             number_of_features = num_features,
@@ -114,10 +77,8 @@ vrae = VRAE(sequence_length=seq_len,
             output = output,
             reduction = reduction)
 
-# %% [markdown]
 # ### Fit the model onto dataset
 
-# %%
 # Cross validation:
 # train_loss, train_mse, val_mse = crossval(dataset, vrae, batch_size, k = 5)
 # with open(dload+'/meanrecloss_loss_mse', "wb") as fh:
@@ -126,18 +87,14 @@ vrae = VRAE(sequence_length=seq_len,
 # Training model:
 vrae.fit(dataset, None)
 
-# %% [markdown]
 # ### Plot loss and MSE
-
-# %%
 plt.figure(figsize=(8,4.5))
 plt.semilogy(vrae.all_loss, color = 'r', alpha = 0.5, label = 'loss')
 plt.semilogy(vrae.recon_loss, color = 'b', alpha = 0.5, label = 'recon mse')
 plt.semilogy(vrae.kl_loss, color = 'k', alpha = 0.5, label = 'KL')
 plt.legend()
-plt.savefig(f'model_training_{time.strftime("%Y%m%d-%H%M%S")}')
+plt.savefig(f'model_loss_{time.strftime("%Y%m%d-%H%M%S")}')
 
-# %%
 # train_loss, train_mse, val_mse
 
 # for ii in range(5):
@@ -154,31 +111,26 @@ plt.savefig(f'model_training_{time.strftime("%Y%m%d-%H%M%S")}')
 # plt.plot([350, 350], [-5, 5], color = 'k', linewidth = 1)
 # plt.title('mean recon mse, z=16, 5-fold cv')
 
-# %% [markdown]
 # ### Transform the input timeseries to encoded latent vectors
 
-# %%
 #If the latent vectors have to be saved, pass the parameter `save`
 # z_run = vrae.transform(train_dataset, save = True, filename = 'z_run_e2_b32_z16_output.pkl')
 z_run = vrae.transform(dataset, save = False)
 z_run.shape
 
-# %% [markdown]
 # ### Save / load the model
-
-# %%
-with open(dload+'/vrae_b32_z16_mean_350epoch.pth', "wb") as fh:
+model_name = f'/vrae_b{batch_size}_z{latent_length}_mean_{n_epochs}epoch.pth'
+with open(dload+model_name, "wb") as fh:
     pickle.dump(vrae, fh)
 
-# %%
-with open(dload+'/vrae_b32_z8_mean_350epoch.pth', "rb") as fh:
-    vrae = pickle.load(fh)
+# with open(dload+'/vrae_b32_z8_mean_350epoch.pth', "rb") as fh:
+#     vrae = pickle.load(fh)
 
 # %%
-vrae.save('./vrae_b32_z16_mean_350epoch.pth')
+vrae.save('.'+model_name)
 
 # %%
-vrae.load(dload+'/vrae_b32_z16_300epoch.pth')
+# vrae.load(dload+'/vrae_b32_z16_300epoch.pth')
 # with open(dload+'/z_run_e57_b32_z16_output.pkl', 'rb') as fh:
 #     z_run = pickle.load(fh)
 
