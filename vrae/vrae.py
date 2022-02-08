@@ -423,7 +423,7 @@ class VRAE(BaseEstimator, nn.Module):
             self.all_loss.append(average_loss)
             self.recon_loss.append(average_recon_loss)
             self.kl_loss.append(average_kl_loss)
-            if (i+1) % self.val_every == 0:
+            if (i+1) % self.val_every == 0 and val_dataset is not None:
                 self.is_fitted = True
                 recons = self.reconstruct(val_dataset)
                 # print(torch.tensor(recons).permute(1,0,2).shape, val_dataset.dataset.tensors[0].shape)
