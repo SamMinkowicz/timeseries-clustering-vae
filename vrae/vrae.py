@@ -6,6 +6,7 @@ from .base import BaseEstimator
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import os
+import time
 
 
 class Encoder(nn.Module):
@@ -417,7 +418,7 @@ class VRAE(BaseEstimator, nn.Module):
             if (i+1) % self.print_every == 0:
                 print('Epoch: %s, ' % i, end = '')
                 print('Average loss: {:.4f}, '.format(average_loss), 'Average recon loss: {:.4f}, '.format(average_recon_loss), 
-                      'Average KL loss: {:.4f}'.format(average_kl_loss))
+                      'Average KL loss: {:.4f}, '.format(average_kl_loss), f'Time: {time.strftime("%X")}')
                 
             self.all_loss.append(average_loss)
             self.recon_loss.append(average_recon_loss)
