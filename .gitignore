@@ -5,4 +5,5 @@
 
 vrae/__pycache__/
 
-\.model_dir/*
+model_dir/*
+
