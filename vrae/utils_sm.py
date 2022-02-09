@@ -11,7 +11,23 @@ def compute_limb_distance(poses, limb1, limb2, limb_dict):
     )
 
 
-def load_single_file(pose_path, limb_dict_path, seq_len):
+def window_data(data, window_length, window_slide):
+    """window 2D data that has time along the rows and features along the columns.
+    Data will be returned in the shape n_windows x window_length x n_features."""
+    if window_slide < 1:
+        print('space_between_windows must be >= 1')
+        return None
+    if window_slide == 1:
+        return np.lib.stride_tricks.sliding_window_view(data, window_length, 0).swapaxes(1, 2)
+    n_timepoints = data.shape[0]
+    if window_slide == window_length:
+        return data.reshape(n_timepoints // window_length, window_length, data.shape[1])
+
+    return np.stack([data[i:n_timepoints+i-window_length+1:window_slide] 
+                     for i in range(window_length)], axis=1)
+
+
+def load_single_file(pose_path, limb_dict_path, seq_len, window_slide):
     # load the np array
     # now is limbs x coordinates x timepoints
     raw_data = np.load(pose_path)
@@ -44,12 +60,11 @@ def load_single_file(pose_path, limb_dict_path, seq_len):
 
     x_train = np.hstack((x_train, distances))
 
-    # finally is (timepoints / seq_length) x seq_length x n_features
-    n_segments = n_timepoints // seq_len
-    return x_train.reshape((n_segments, seq_len, n_features))
+    # finally is n_windows x seq_length x n_features
+    return window_data(x_train, seq_len, window_slide)
 
 
-def load_training_data(data_dir, batch_size=32, seq_len=250,
+def load_training_data(data_dir, batch_size=32, seq_len=250, window_slide=250,
                        trim=True):
     """
     Load dataset and preprocess.
@@ -64,13 +79,14 @@ def load_training_data(data_dir, batch_size=32, seq_len=250,
                 Sequence length chosen at the first elbow of the
                 autocorrelation of the keypoints over time. Was ~2 seconds
                 with frame rate of 125/s so we choose 250.
-
+    window_slide: the number of frames to slide between each window
     trim: if true, remove the extra part that can't be divided by batch size.
 
     Return:
     x_train: data in segments x seq length x features ndarray.
     """
     # TODO ensure matches batch size
+    # TODO implement trim
 
     # get all the files
     all_x_train = []
@@ -82,15 +98,17 @@ def load_training_data(data_dir, batch_size=32, seq_len=250,
             if not os.path.exists(limbs_path):
                 continue
             all_x_train.append(
-                load_single_file(f.path, limbs_path, seq_len))
+                load_single_file(f.path, limbs_path, seq_len, window_slide))
 
     if all_x_train:
         return np.vstack(all_x_train)
     
 
 if __name__ == '__main__':
+    test_window_slide = 250 
     x_t = load_training_data(
-        r'/home/sam/anipose_out')
+        r'/media/storage/sam/anipose_out', window_slide=test_window_slide)
     if x_t is not None:
         print(x_t.shape)
+        np.save(f'slide{test_window_slide}', x_t)
         # print(x_t[0, 0, :])

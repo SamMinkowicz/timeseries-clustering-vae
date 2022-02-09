@@ -17,12 +17,13 @@ data_dir = r'/media/storage/sam/anipose_out'
 
 # Hyper parameters
 seq_len = 250
+window_slide = 10 # options: int >= 0
 hidden_size = 256
 hidden_layer_depth = 3
 latent_length = 16
 batch_size = 32
 learning_rate = 0.00002
-n_epochs = 1000
+n_epochs = 5
 dropout_rate = 0.0
 optimizer = 'Adam' # options: ADAM, SGD
 cuda = True # options: True, False
@@ -37,7 +38,8 @@ reduction = 'mean'
 
 # Load training data
 X = utils_sm.load_training_data(data_dir, batch_size=batch_size,
-                                seq_len=seq_len, trim=True)
+                                seq_len=seq_len, window_slide=window_slide, trim=True)
+print(f'Training data shape: {X.shape}')
 dataset = TensorDataset(torch.from_numpy(X))
 
 num_features = X.shape[2]
@@ -77,7 +79,7 @@ vrae = VRAE(sequence_length=seq_len,
 
 # Training model:
 print(f'Starting training: {time.strftime("%X")}')
-vrae.fit(dataset, None)
+vrae.fit(train_dataset=dataset, val_dataset=None, save=True)
 print(f'Finished training: {time.strftime("%X")}')
 
 # ### Plot loss and MSE
