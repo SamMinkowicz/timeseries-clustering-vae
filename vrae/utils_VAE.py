@@ -212,14 +212,19 @@ def plot_recon_single(dataset, reconstruction, idx=None):
 
     fig, axs = plt.subplots(num_rows, 5, figsize=(20, num_rows * 5))
     original_color = "#a6cee3"
+    original_color_english = "blue"
     recon_color = "#b2df8a"
+    recon_color_english = "green"
     for ii in range(num_features):
         ori = dataset[idx, :, ii]
         rec = reconstruction[idx, :, ii]
-        axs[ii // 5, ii % 5].plot(ori, color="black")
-        axs[ii // 5, ii % 5].plot(rec, color="red")
+        axs[ii // 5, ii % 5].plot(ori, color=original_color)
+        axs[ii // 5, ii % 5].plot(rec, color=recon_color)
         axs[ii // 5, ii % 5].set_title(f"Feature #{ii+1}")
-    fig.suptitle(f"Ori and rec of sequesce # {idx+1}", size=20)
+    fig.suptitle(
+        f"Original ({original_color_english}) and reconstruction ({recon_color_english}) of segment #{idx+1}",
+        size=20,
+    )
     plt.show()
 
 
