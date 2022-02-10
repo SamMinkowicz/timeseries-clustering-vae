@@ -211,10 +211,12 @@ def plot_recon_single(dataset, reconstruction, idx=None):
         idx = np.random.choice(num_seq, 1)[0] - 1
 
     fig, axs = plt.subplots(num_rows, 5, figsize=(20, num_rows * 5))
-    original_color = "#a6cee3"
+
+    original_color = "#377eb8"
+    recon_color = "#4daf4a"
     original_color_english = "blue"
-    recon_color = "#b2df8a"
     recon_color_english = "green"
+
     for ii in range(num_features):
         ori = dataset[idx, :, ii]
         rec = reconstruction[idx, :, ii]
@@ -232,7 +234,7 @@ def plot_recon_long(X, reconstruction, xlim=[10000, 10500], label=None):
     """
     Plot the original and reconstructed trace.
 
-    X, reconstruction: n_seq * seq_len * 15 nparray.
+    X, reconstruction: n_seq * seq_len * n_features nparray.
     xlim: the start and end of trace to show.
     label: If None, use the list of muscle names.
     """
@@ -257,16 +259,23 @@ def plot_recon_long(X, reconstruction, xlim=[10000, 10500], label=None):
         ]
 
     fig, axs = plt.subplots(5, 3, figsize=(25, 10))
-    X = X.reshape(-1, 15)[xlim[0] : xlim[1], :]
-    reconstruction = reconstruction.reshape(-1, 15)[xlim[0] : xlim[1], :]
+    n_features = X.shape[2]
+    X = X.reshape(-1, n_features)[xlim[0] : xlim[1], :]
+    reconstruction = reconstruction.reshape(-1, n_features)[xlim[0] : xlim[1], :]
+
+    original_color = "#377eb8"
+    recon_color = "#4daf4a"
+    original_color_english = "blue"
+    recon_color_english = "green"
+
+    recon_color = "#4daf4a"
 
     for ii in range(15):
         loc = [ii // 3, ii % 3]
-        axs[loc[0], loc[1]].plot(X[:, ii], color="k", label="Ori")
-        axs[loc[0], loc[1]].plot(reconstruction[:, ii], color="r", label="Rec")
+        axs[loc[0], loc[1]].plot(X[:, ii], color=original_color, label="Ori")
+        axs[loc[0], loc[1]].plot(reconstruction[:, ii], color=recon_color, label="Rec")
         axs[loc[0], loc[1]].set_xticks(np.arange(0, len(X[:, ii]) + 1, 100))
         axs[loc[0], loc[1]].set_xticklabels(np.arange(xlim[0], xlim[1] + 1, 100))
-        axs[loc[0], loc[1]].set_ylim([0, 250])
         axs[loc[0], loc[1]].annotate(
             label[ii],
             xy=(50, 80),
@@ -275,6 +284,11 @@ def plot_recon_long(X, reconstruction, xlim=[10000, 10500], label=None):
             ha="right",
             va="top",
         )
+    fig.suptitle(
+        f"Original ({original_color_english}) and reconstruction ({recon_color_english})",
+        size=20,
+    )
+    plt.show()
 
 
 def plot_recon_metrics(dataset, reconstruction, x_lim=None, verbose=False, plot=False):
