@@ -431,7 +431,7 @@ def visualize(z_run, y, inv_bhvs, one_in=4, perplexity=80, n_iter=3000):
     """
 
     z_run_down = z_run[::one_in, :]
-    label = y[::one_in, :]
+    label = y[::one_in]
 
     # z_run_pca = TruncatedSVD(n_components=2).fit_transform(z_run_down)
     z_run_pca = PCA(n_components=2).fit_transform(z_run_down)
