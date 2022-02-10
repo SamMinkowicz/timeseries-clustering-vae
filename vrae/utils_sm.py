@@ -93,9 +93,6 @@ def load_training_data(
     Return:
     x_train: data in segments x seq length x features ndarray.
     """
-    # TODO ensure matches batch size
-    # TODO implement trim
-
     # get all the files
     all_x_train = []
     for f in os.scandir(data_dir):
@@ -109,16 +106,23 @@ def load_training_data(
                 load_single_file(f.path, limbs_path, seq_len, window_slide)
             )
 
-    if all_x_train:
-        return np.vstack(all_x_train)
+    if not all_x_train:
+        return
+
+    x_train = np.vstack(all_x_train)
+
+    if trim:
+        return x_train[: (x_train.shape[0] // batch_size) * batch_size, :, :]
+    else:
+        return x_train
 
 
 if __name__ == "__main__":
-    test_window_slide = 250
-    x_t = load_training_data(
-        r"/media/storage/sam/anipose_out", window_slide=test_window_slide
-    )
+    test_window_slide = 10
+    data_dir = r"/media/storage/sam/anipose_out"
+    data_dir = r"E:\sam\anipose_out"
+    x_t = load_training_data(data_dir, window_slide=test_window_slide)
     if x_t is not None:
         print(x_t.shape)
-        np.save(f"slide{test_window_slide}", x_t)
+        # np.save(f"slide{test_window_slide}", x_t)
         # print(x_t[0, 0, :])
