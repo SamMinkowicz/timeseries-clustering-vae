@@ -1,6 +1,5 @@
 # Set which gpu to use
 import os
-from turtle import shape
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -12,12 +11,14 @@ import matplotlib.pyplot as plt
 
 from torch.utils.data import TensorDataset
 import time
+from datetime import datetime
+import numpy as np
 
 # Download dir
 model_dir = r"/home/sam/timeseries-clustering-vae/model_dir"
 data_dir = r"/media/storage/sam/anipose_out"
 
-model_dir = r"E:\sam\timeseries-clustering-vae\model_dir\model1"
+model_dir = r"E:\sam\timeseries-clustering-vae\model_dir\model2"
 data_dir = r"E:\sam\anipose_out"
 
 # Hyper parameters
@@ -93,9 +94,15 @@ vrae = VRAE(
 
 # Training model:
 time_training_started = time.strftime("%m%d%Y-%H%M%S")
-print(f'Starting training: {time.strftime("%X")}')
+print_fmt = "%X"
+started = time.strftime(print_fmt)
+print(f"Starting training: {started}")
 vrae.fit(train_dataset=dataset, val_dataset=None)
-print(f'Finished training: {time.strftime("%X")}')
+ended = time.strftime(print_fmt)
+print(f"Finished training: {ended}")
+train_time = datetime.strptime(ended, print_fmt) - datetime.strptime(started, print_fmt)
+print(f"Total train time: {str(train_time)}")
+print(f"Avg time per epoch: {np.round(train_time.seconds / n_epochs, 2)} seconds")
 
 # ### Plot loss and MSE
 plt.figure(figsize=(8, 4.5))
@@ -106,7 +113,7 @@ plt.legend()
 
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)
-plt.savefig(os.path.join(model_dir, f"model_loss_{time_training_started}"))
+plt.savefig(os.path.join(model_dir, f"train_loss_{time_training_started}"))
 
 # plots for cross validation
 # train_loss, train_mse, val_mse
