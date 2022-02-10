@@ -1,3 +1,4 @@
+from tabnanny import check
 import numpy as np
 import torch
 from torch import nn, optim
@@ -272,6 +273,7 @@ class VRAE(BaseEstimator, nn.Module):
         dload=".",
         output=False,
         reduction="mean",
+        checkpoint_every=100,
     ):
 
         super(VRAE, self).__init__()
@@ -320,6 +322,7 @@ class VRAE(BaseEstimator, nn.Module):
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.n_epochs = n_epochs
+        self.checkpoint_every = checkpoint_every
 
         self.print_every = print_every
         self.val_every = val_every
@@ -457,7 +460,9 @@ class VRAE(BaseEstimator, nn.Module):
 
         return average_loss, average_recon_loss, average_kl_loss
 
-    def fit(self, train_dataset, val_dataset, save=False):
+    def fit(
+        self, train_dataset, val_dataset, save=False, checkpoint_filename_suffix=None
+    ):
         """
         Calls `_train` function over a fixed number of epochs, specified by `n_epochs`
 
@@ -499,6 +504,7 @@ class VRAE(BaseEstimator, nn.Module):
             self.all_loss.append(average_loss)
             self.recon_loss.append(average_recon_loss)
             self.kl_loss.append(average_kl_loss)
+
             if (i + 1) % self.val_every == 0 and val_dataset is not None:
                 self.is_fitted = True
                 recons = self.reconstruct(val_dataset)
@@ -506,6 +512,9 @@ class VRAE(BaseEstimator, nn.Module):
                 curr_mse = MSE(torch.tensor(recons).permute(1, 0, 2), val_ori)
                 self.val_mse.append(float(curr_mse))
                 self.is_fitted = False
+
+            if (i + 1) % self.checkpoint_every == 0 and checkpoint_filename_suffix:
+                self.save(f"ckpt_epoch{i+1}_" + checkpoint_filename_suffix + ".pth")
 
         # with open('mses.txt', 'w') as myFile:
         #     for elem in mses:

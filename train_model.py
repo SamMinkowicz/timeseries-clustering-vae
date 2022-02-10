@@ -42,6 +42,7 @@ block = "LSTM"  # options: LSTM, GRU
 output = False
 reduction = "mean"
 trim = True
+checkpoint_every = 50
 
 # Load training data
 X = utils_sm.load_training_data(
@@ -83,6 +84,7 @@ vrae = VRAE(
     dload=model_dir,
     output=output,
     reduction=reduction,
+    checkpoint_every=checkpoint_every,
 )
 
 # ### Fit the model onto dataset
@@ -97,7 +99,11 @@ time_training_started = time.strftime("%m%d%Y-%H%M%S")
 print_fmt = "%X"
 started = time.strftime(print_fmt)
 print(f"Starting training: {started}")
-vrae.fit(train_dataset=dataset, val_dataset=None)
+vrae.fit(
+    train_dataset=dataset,
+    val_dataset=None,
+    checkpoint_filename_suffix=str(time_training_started),
+)
 ended = time.strftime(print_fmt)
 print(f"Finished training: {ended}")
 train_time = datetime.strptime(ended, print_fmt) - datetime.strptime(started, print_fmt)
@@ -134,6 +140,7 @@ plt.savefig(os.path.join(model_dir, f"train_loss_{time_training_started}"))
 
 # ### Transform the input timeseries to encoded latent vectors
 # If the latent vectors have to be saved, pass the parameter `save`
+print("Obtaining latent vectors for the training data...")
 z_run = vrae.transform(
     dataset, save=True, filename=f"z_run_{time_training_started}.pkl"
 )
@@ -141,9 +148,11 @@ z_run = vrae.transform(
 print(f"latent vector shape: {z_run.shape}")
 
 # ### Save model
+print("Saving trained model")
 vrae.save(f"vrae_{time_training_started}.pth")
 
 # Save training hyperparameters
+print("Saving trained hyper-parameters")
 filename = f"params_{time_training_started}.pickle"
 hyper_params_dict = {
     "model_dir": model_dir,
