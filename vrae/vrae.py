@@ -20,7 +20,17 @@ class Encoder(nn.Module):
     :param dropout: percentage of nodes to dropout
     :param block: LSTM/GRU block
     """
-    def __init__(self, number_of_features, hidden_size, hidden_layer_depth, latent_length, dropout, block = 'LSTM', output = False):
+
+    def __init__(
+        self,
+        number_of_features,
+        hidden_size,
+        hidden_layer_depth,
+        latent_length,
+        dropout,
+        block="LSTM",
+        output=False,
+    ):
 
         super(Encoder, self).__init__()
 
@@ -30,10 +40,20 @@ class Encoder(nn.Module):
         self.latent_length = latent_length
         self.output = output
 
-        if block == 'LSTM':
-            self.model = nn.LSTM(self.number_of_features, self.hidden_size, self.hidden_layer_depth, dropout = dropout)
-        elif block == 'GRU':
-            self.model = nn.GRU(self.number_of_features, self.hidden_size, self.hidden_layer_depth, dropout = dropout)
+        if block == "LSTM":
+            self.model = nn.LSTM(
+                self.number_of_features,
+                self.hidden_size,
+                self.hidden_layer_depth,
+                dropout=dropout,
+            )
+        elif block == "GRU":
+            self.model = nn.GRU(
+                self.number_of_features,
+                self.hidden_size,
+                self.hidden_layer_depth,
+                dropout=dropout,
+            )
         else:
             raise NotImplementedError
 
@@ -43,11 +63,10 @@ class Encoder(nn.Module):
         :param x: input to the encoder, of shape (sequence_length, batch_size, number_of_features)
         :return: last hidden state of encoder, of shape (batch_size, hidden_size)
         """
-	
+
         if not self.output:
             # print('use hidden')
             _, (h_end, c_end) = self.model(x)
-        
 
             h_end = h_end[-1, :, :]
             # print(list(h_end.size()))
@@ -56,20 +75,20 @@ class Encoder(nn.Module):
             # print('use output')
             out_h, (_, _) = self.model(x)
             [_, N, _] = list(out_h.size())
-            #print(list(out_h.size()), N)
+            # print(list(out_h.size()), N)
             out_h = out_h.permute(1, 0, 2)
-            #print(list(out_h.size()))
+            # print(list(out_h.size()))
             out_h = out_h.reshape(N, -1)
-            #print(list(out_h.size()))
-            
-            #out_h = out_h.unsqueeze(0)
+            # print(list(out_h.size()))
+
+            # out_h = out_h.unsqueeze(0)
             # print(list(out_h.size()), N, H)
-            #m = nn.Conv2d(10, 1, (1,1)).cuda()
-            #out_2d = m(out_h)
-            #out_2d = out_2d.view(N, H)
+            # m = nn.Conv2d(10, 1, (1,1)).cuda()
+            # out_2d = m(out_h)
+            # out_2d = out_2d.view(N, H)
             # print(list(out_2d.size()))
             return out_h
-            
+
 
 class Lambda(nn.Module):
     """Lambda module converts output of encoder to latent vector
@@ -77,13 +96,14 @@ class Lambda(nn.Module):
     :param hidden_size: hidden size of the encoder
     :param latent_length: latent vector length
     """
-    def __init__(self, hidden_size, latent_length, seq_length, output = False):
+
+    def __init__(self, hidden_size, latent_length, seq_length, output=False):
         super(Lambda, self).__init__()
 
         self.hidden_size = hidden_size
         self.latent_length = latent_length
         self.output = output
-        
+
         if not self.output:
             self.input_size = hidden_size
         else:
@@ -114,6 +134,7 @@ class Lambda(nn.Module):
         else:
             return self.latent_mean
 
+
 class Decoder(nn.Module):
     """Converts latent vector into output
 
@@ -126,7 +147,18 @@ class Decoder(nn.Module):
     :param block: GRU/LSTM - use the same which you've used in the encoder
     :param dtype: Depending on cuda enabled/disabled, create the tensor
     """
-    def __init__(self, sequence_length, batch_size, hidden_size, hidden_layer_depth, latent_length, output_size, dtype, block='LSTM'):
+
+    def __init__(
+        self,
+        sequence_length,
+        batch_size,
+        hidden_size,
+        hidden_layer_depth,
+        latent_length,
+        output_size,
+        dtype,
+        block="LSTM",
+    ):
 
         super(Decoder, self).__init__()
 
@@ -138,9 +170,9 @@ class Decoder(nn.Module):
         self.output_size = output_size
         self.dtype = dtype
 
-        if block == 'LSTM':
+        if block == "LSTM":
             self.model = nn.LSTM(1, self.hidden_size, self.hidden_layer_depth)
-        elif block == 'GRU':
+        elif block == "GRU":
             self.model = nn.GRU(1, self.hidden_size, self.hidden_layer_depth)
         else:
             raise NotImplementedError
@@ -162,9 +194,16 @@ class Decoder(nn.Module):
         """
         self.batch_size = latent.shape[0]
         h_state = self.latent_to_hidden(latent)
-        
-        self.decoder_inputs = torch.zeros(self.sequence_length, self.batch_size, 1, requires_grad=True).type(self.dtype)
-        self.c_0 = torch.zeros(self.hidden_layer_depth, self.batch_size, self.hidden_size, requires_grad=True).type(self.dtype)
+
+        self.decoder_inputs = torch.zeros(
+            self.sequence_length, self.batch_size, 1, requires_grad=True
+        ).type(self.dtype)
+        self.c_0 = torch.zeros(
+            self.hidden_layer_depth,
+            self.batch_size,
+            self.hidden_size,
+            requires_grad=True,
+        ).type(self.dtype)
 
         if isinstance(self.model, nn.LSTM):
             h_0 = torch.stack([h_state for _ in range(self.hidden_layer_depth)])
@@ -178,10 +217,13 @@ class Decoder(nn.Module):
         out = self.hidden_to_output(decoder_output)
         return out
 
+
 def _assert_no_grad(tensor):
-    assert not tensor.requires_grad, \
-        "nn criterions don't compute the gradient w.r.t. targets - please " \
+    assert not tensor.requires_grad, (
+        "nn criterions don't compute the gradient w.r.t. targets - please "
         "mark these tensors as not requiring gradients"
+    )
+
 
 class VRAE(BaseEstimator, nn.Module):
     """Variational recurrent auto-encoder. This module is used for dimensionality reduction of timeseries
@@ -207,14 +249,32 @@ class VRAE(BaseEstimator, nn.Module):
     :param all_loss: list to hold all training loss
     :param val_mse: list to hold mse of validation set, if using validation.
     """
-    def __init__(self, sequence_length, number_of_features, hidden_size=90, hidden_layer_depth=2, latent_length=20,
-                 batch_size=32, learning_rate=0.005, block='LSTM',
-                 n_epochs=5, dropout_rate=0., optimizer='Adam', loss='MSELoss',
-                 cuda=False, print_every=100, val_every = 5, clip=True, max_grad_norm=5, dload='.', output = False,
-                 reduction = 'mean'):
+
+    def __init__(
+        self,
+        sequence_length,
+        number_of_features,
+        hidden_size=90,
+        hidden_layer_depth=2,
+        latent_length=20,
+        batch_size=32,
+        learning_rate=0.005,
+        block="LSTM",
+        n_epochs=5,
+        dropout_rate=0.0,
+        optimizer="Adam",
+        loss="MSELoss",
+        cuda=False,
+        print_every=100,
+        val_every=5,
+        clip=True,
+        max_grad_norm=5,
+        dload=".",
+        output=False,
+        reduction="mean",
+    ):
 
         super(VRAE, self).__init__()
-
 
         self.dtype = torch.FloatTensor
         self.use_cuda = cuda
@@ -222,32 +282,36 @@ class VRAE(BaseEstimator, nn.Module):
         if not torch.cuda.is_available() and self.use_cuda:
             self.use_cuda = False
 
-
         if self.use_cuda:
             self.dtype = torch.cuda.FloatTensor
 
+        self.encoder = Encoder(
+            number_of_features=number_of_features,
+            hidden_size=hidden_size,
+            hidden_layer_depth=hidden_layer_depth,
+            latent_length=latent_length,
+            dropout=dropout_rate,
+            block=block,
+            output=output,
+        )
 
-        self.encoder = Encoder(number_of_features = number_of_features,
-                               hidden_size=hidden_size,
-                               hidden_layer_depth=hidden_layer_depth,
-                               latent_length=latent_length,
-                               dropout=dropout_rate,
-                               block=block,
-                               output = output)
+        self.lmbd = Lambda(
+            hidden_size=hidden_size,
+            latent_length=latent_length,
+            seq_length=sequence_length,
+            output=output,
+        )
 
-        self.lmbd = Lambda(hidden_size=hidden_size,
-                           latent_length=latent_length,
-                           seq_length = sequence_length,
-                           output = output)
-
-        self.decoder = Decoder(sequence_length=sequence_length,
-                               batch_size = batch_size,
-                               hidden_size=hidden_size,
-                               hidden_layer_depth=hidden_layer_depth,
-                               latent_length=latent_length,
-                               output_size=number_of_features,
-                               block=block,
-                               dtype=self.dtype)
+        self.decoder = Decoder(
+            sequence_length=sequence_length,
+            batch_size=batch_size,
+            hidden_size=hidden_size,
+            hidden_layer_depth=hidden_layer_depth,
+            latent_length=latent_length,
+            output_size=number_of_features,
+            block=block,
+            dtype=self.dtype,
+        )
 
         self.sequence_length = sequence_length
         self.hidden_size = hidden_size
@@ -273,24 +337,25 @@ class VRAE(BaseEstimator, nn.Module):
         if self.use_cuda:
             self.cuda()
 
-        if optimizer == 'Adam':
+        if optimizer == "Adam":
             self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
-        elif optimizer == 'SGD':
+        elif optimizer == "SGD":
             self.optimizer = optim.SGD(self.parameters(), lr=learning_rate)
         else:
-            raise ValueError('Not a recognized optimizer')
+            raise ValueError("Not a recognized optimizer")
 
-        if loss == 'SmoothL1Loss':
+        if loss == "SmoothL1Loss":
             self.loss_fn = nn.SmoothL1Loss(size_average=False)
-        elif loss == 'MSELoss':
+        elif loss == "MSELoss":
             # self.loss_fn = nn.MSELoss(size_average=False)
             self.loss_fn = nn.MSELoss(reduction=self.reduction)
 
     def __repr__(self):
-        return """VRAE(n_epochs={n_epochs},batch_size={batch_size},cuda={cuda})""".format(
-                n_epochs=self.n_epochs,
-                batch_size=self.batch_size,
-                cuda=self.use_cuda)
+        return (
+            """VRAE(n_epochs={n_epochs},batch_size={batch_size},cuda={cuda})""".format(
+                n_epochs=self.n_epochs, batch_size=self.batch_size, cuda=self.use_cuda
+            )
+        )
 
     def forward(self, x):
         """
@@ -316,11 +381,13 @@ class VRAE(BaseEstimator, nn.Module):
         """
         latent_mean, latent_logvar = self.lmbd.latent_mean, self.lmbd.latent_logvar
 
-        kl_loss = -0.5 * torch.mean(1 + latent_logvar - latent_mean.pow(2) - latent_logvar.exp())
+        kl_loss = -0.5 * torch.mean(
+            1 + latent_logvar - latent_mean.pow(2) - latent_logvar.exp()
+        )
         recon_loss = loss_fn(x_decoded, x)
         # print(torch.mean((x - x_decoded)**2).item(), torch.sum((x - x_decoded)**2).item(), recon_loss.item(), kl_loss.item())
-        
-        #print(latent_mean.shape, latent_logvar.shape, x_decoded.shape, x.shape, recon_loss, kl_loss)
+
+        # print(latent_mean.shape, latent_logvar.shape, x_decoded.shape, x.shape, recon_loss, kl_loss)
 
         return kl_loss + recon_loss, recon_loss, kl_loss
 
@@ -332,13 +399,12 @@ class VRAE(BaseEstimator, nn.Module):
         :param X: Input tensor
         :return: total loss, reconstruction loss, kl-divergence loss and original input
         """
-        x = Variable(X[:,:,:].type(self.dtype), requires_grad = True)
+        x = Variable(X[:, :, :].type(self.dtype), requires_grad=True)
 
         x_decoded, _ = self(x)
         loss, recon_loss, kl_loss = self._rec(x_decoded, x.detach(), self.loss_fn)
 
         return loss, recon_loss, kl_loss, x
-
 
     def _train(self, train_loader):
         """
@@ -361,7 +427,7 @@ class VRAE(BaseEstimator, nn.Module):
             X = X[0]
 
             # required to swap axes, since dataloader gives output in (batch_size x seq_len x num_of_features)
-            X = X.permute(1,0,2)
+            X = X.permute(1, 0, 2)
 
             self.optimizer.zero_grad()
             loss, recon_loss, kl_loss, _ = self.compute_loss(X)
@@ -369,7 +435,9 @@ class VRAE(BaseEstimator, nn.Module):
             loss.backward()
 
             if self.clip:
-                torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm = self.max_grad_norm)
+                torch.nn.utils.clip_grad_norm_(
+                    self.parameters(), max_norm=self.max_grad_norm
+                )
 
             # accumulator
             epoch_loss += loss.item()
@@ -378,18 +446,18 @@ class VRAE(BaseEstimator, nn.Module):
 
             self.optimizer.step()
 
-            #if (t + 1) % self.print_every == 0:
-                #print('Batch %d, loss = %.4f, recon_loss = %.4f, kl_loss = %.4f' % (t + 1, loss.item(),
-                                                                                    #recon_loss.item(), kl_loss.item()))
+            # if (t + 1) % self.print_every == 0:
+            # print('Batch %d, loss = %.4f, recon_loss = %.4f, kl_loss = %.4f' % (t + 1, loss.item(),
+            # recon_loss.item(), kl_loss.item()))
 
-        average_loss = epoch_loss / (t+1)
-        average_recon_loss = recon_loss_all / (t+1)
-        average_kl_loss = kl_loss_all / (t+1)
-        #print('Average loss: {:.4f}'.format(average_loss))
+        average_loss = epoch_loss / (t + 1)
+        average_recon_loss = recon_loss_all / (t + 1)
+        average_kl_loss = kl_loss_all / (t + 1)
+        # print('Average loss: {:.4f}'.format(average_loss))
 
         return average_loss, average_recon_loss, average_kl_loss
 
-    def fit(self, train_dataset, val_dataset, save = False):
+    def fit(self, train_dataset, val_dataset, save=False):
         """
         Calls `_train` function over a fixed number of epochs, specified by `n_epochs`
 
@@ -399,49 +467,56 @@ class VRAE(BaseEstimator, nn.Module):
         :return:
         """
 
-        train_loader = DataLoader(dataset = train_dataset,
-                                  batch_size = self.batch_size,
-                                  shuffle = True,
-                                  drop_last=True)
+        train_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            drop_last=True,
+        )
         if val_dataset:
             val_idx = val_dataset.indices
             val_ori = val_dataset.dataset.tensors[0][val_idx]
             MSE = torch.nn.MSELoss(reduction=self.reduction)
         #    mses = []
-            
+
         # all_loss = []
         for i in range(self.n_epochs):
-            #print('Epoch: %s' % i)
+            # print('Epoch: %s' % i)
 
-            average_loss, average_recon_loss, average_kl_loss = self._train(train_loader)
-            
-            if (i+1) % self.print_every == 0:
-                print('Epoch: %s, ' % i, end = '')
-                print('Average loss: {:.4f}, '.format(average_loss), 'Average recon loss: {:.4f}, '.format(average_recon_loss), 
-                      'Average KL loss: {:.4f}, '.format(average_kl_loss), f'Time: {time.strftime("%X")}')
-                
+            average_loss, average_recon_loss, average_kl_loss = self._train(
+                train_loader
+            )
+
+            if (i + 1) % self.print_every == 0:
+                print("Epoch: %s, " % i, end="")
+                print(
+                    "Average loss: {:.4f}, ".format(average_loss),
+                    "Average recon loss: {:.4f}, ".format(average_recon_loss),
+                    "Average KL loss: {:.4f}, ".format(average_kl_loss),
+                    f'Time: {time.strftime("%X")}',
+                )
+
             self.all_loss.append(average_loss)
             self.recon_loss.append(average_recon_loss)
             self.kl_loss.append(average_kl_loss)
-            if (i+1) % self.val_every == 0 and val_dataset is not None:
+            if (i + 1) % self.val_every == 0 and val_dataset is not None:
                 self.is_fitted = True
                 recons = self.reconstruct(val_dataset)
                 # print(torch.tensor(recons).permute(1,0,2).shape, val_dataset.dataset.tensors[0].shape)
-                curr_mse = MSE(torch.tensor(recons).permute(1,0,2), val_ori)
+                curr_mse = MSE(torch.tensor(recons).permute(1, 0, 2), val_ori)
                 self.val_mse.append(float(curr_mse))
                 self.is_fitted = False
-                
+
         # with open('mses.txt', 'w') as myFile:
         #     for elem in mses:
         #         myFile.write(str(float(elem))+'\n')
-        #if val_dataset:
+        # if val_dataset:
         #    self.val_mse = mses
 
         # self.all_loss = all_loss
         self.is_fitted = True
         if save:
-            self.save('model.pth')
-
+            self.save("model.pth")
 
     def _batch_transform(self, x):
         """
@@ -450,11 +525,11 @@ class VRAE(BaseEstimator, nn.Module):
         :param x: input batch tensor
         :return: intermediate latent vector
         """
-        return self.lmbd(
-                    self.encoder(
-                        Variable(x.type(self.dtype), requires_grad = False)
-                    )
-        ).cpu().data.numpy()
+        return (
+            self.lmbd(self.encoder(Variable(x.type(self.dtype), requires_grad=False)))
+            .cpu()
+            .data.numpy()
+        )
 
     def _batch_reconstruct(self, x):
         """
@@ -464,12 +539,12 @@ class VRAE(BaseEstimator, nn.Module):
         :return: reconstructed output tensor
         """
 
-        x = Variable(x.type(self.dtype), requires_grad = False)
+        x = Variable(x.type(self.dtype), requires_grad=False)
         x_decoded, _ = self(x)
 
         return x_decoded.cpu().data.numpy()
 
-    def reconstruct(self, dataset, save = False):
+    def reconstruct(self, dataset, save=False):
         """
         Given input dataset, creates dataloader, runs dataloader on `_batch_reconstruct`
         Prerequisite is that model has to be fit
@@ -481,10 +556,9 @@ class VRAE(BaseEstimator, nn.Module):
 
         self.eval()
 
-        test_loader = DataLoader(dataset = dataset,
-                                 batch_size = self.batch_size,
-                                 shuffle = False,
-                                 drop_last=True) # Don't shuffle for test_loader
+        test_loader = DataLoader(
+            dataset=dataset, batch_size=self.batch_size, shuffle=False, drop_last=True
+        )  # Don't shuffle for test_loader
 
         if self.is_fitted:
             with torch.no_grad():
@@ -504,13 +578,12 @@ class VRAE(BaseEstimator, nn.Module):
                         pass
                     else:
                         os.mkdir(self.dload)
-                    x_decoded.dump(self.dload + '/z_run.pkl')
+                    x_decoded.dump(self.dload + "/z_run.pkl")
                 return x_decoded
 
-        raise RuntimeError('Model needs to be fit')
+        raise RuntimeError("Model needs to be fit")
 
-
-    def transform(self, dataset, save = False, filename = 'z_run.pkl'):
+    def transform(self, dataset, save=False, filename="z_run.pkl"):
         """
         Given input dataset, creates dataloader, runs dataloader on `_batch_transform`
         Prerequisite is that model has to be fit
@@ -521,10 +594,9 @@ class VRAE(BaseEstimator, nn.Module):
         """
         self.eval()
 
-        test_loader = DataLoader(dataset = dataset,
-                                 batch_size = self.batch_size,
-                                 shuffle = False,
-                                 drop_last=True) # Don't shuffle for test_loader
+        test_loader = DataLoader(
+            dataset=dataset, batch_size=self.batch_size, shuffle=False, drop_last=True
+        )  # Don't shuffle for test_loader
         if self.is_fitted:
             with torch.no_grad():
                 z_run = []
@@ -542,12 +614,12 @@ class VRAE(BaseEstimator, nn.Module):
                         pass
                     else:
                         os.mkdir(self.dload)
-                    z_run.dump(self.dload + '/'+filename)
+                    z_run.dump(self.dload + "/" + filename)
                 return z_run
 
-        raise RuntimeError('Model needs to be fit')
+        raise RuntimeError("Model needs to be fit")
 
-    def fit_transform(self, dataset, save = False):
+    def fit_transform(self, dataset, save=False):
         """
         Combines the `fit` and `transform` functions above
 
@@ -555,8 +627,8 @@ class VRAE(BaseEstimator, nn.Module):
         :param bool save: If true, dumps the model and latent vectors as pickle file
         :return: latent vectors for input dataset
         """
-        self.fit(dataset, save = save)
-        return self.transform(dataset, save = save)
+        self.fit(dataset, save=save)
+        return self.transform(dataset, save=save)
 
     def save(self, file_name):
         """
@@ -565,7 +637,7 @@ class VRAE(BaseEstimator, nn.Module):
         :param file_name: the filename to be saved as,`dload` serves as the download directory
         :return: None
         """
-        PATH = self.dload + '/' + file_name
+        PATH = self.dload + "/" + file_name
         if os.path.exists(self.dload):
             pass
         else:
@@ -583,4 +655,4 @@ class VRAE(BaseEstimator, nn.Module):
         if self.use_cuda:
             self.load_state_dict(torch.load(PATH))
         else:
-            self.load_state_dict(torch.load(PATH, map_location = torch.device('cpu')))
+            self.load_state_dict(torch.load(PATH, map_location=torch.device("cpu")))
