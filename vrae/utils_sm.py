@@ -3,6 +3,12 @@ import numpy as np
 import pickle
 
 
+def save_hyperparams(out_path, hyper_params_dict):
+    """save training hyperparameters"""
+    with open(out_path, "wb") as f:
+        pickle.dump(hyper_params_dict, f)
+
+
 def compute_limb_distance(poses, limb1, limb2, limb_dict):
     """compute the euclidean distance between the two limbs"""
     return np.linalg.norm(poses[limb_dict[limb1]] - poses[limb_dict[limb2]], axis=0)
