@@ -18,8 +18,14 @@ import numpy as np
 model_dir = r"/home/sam/timeseries-clustering-vae/model_dir"
 data_dir = r"/media/storage/sam/anipose_out"
 
-model_dir = r"E:\sam\timeseries-clustering-vae\model_dir\model2"
+model_dir = r"E:\sam\timeseries-clustering-vae\model_dir\model"
 data_dir = r"E:\sam\anipose_out"
+
+model_i = 0
+while os.path.exists(f"{model_dir}{model_i}"):
+    model_i += 1
+
+model_dir = f"{model_dir}{model_i}"
 
 # Hyper parameters
 seq_len = 250
@@ -29,7 +35,7 @@ hidden_layer_depth = 3
 latent_length = 16
 batch_size = 32
 learning_rate = 0.00002
-n_epochs = 60
+n_epochs = 700
 dropout_rate = 0.0
 optimizer = "Adam"  # options: ADAM, SGD
 cuda = True  # options: True, False
@@ -148,11 +154,11 @@ z_run = vrae.transform(
 print(f"latent vector shape: {z_run.shape}")
 
 # ### Save model
-print("Saving trained model")
+print("Saving trained model...")
 vrae.save(f"vrae_{time_training_started}.pth")
 
 # Save training hyperparameters
-print("Saving trained hyper-parameters")
+print("Saving training hyper-parameters...")
 filename = f"params_{time_training_started}.pickle"
 hyper_params_dict = {
     "model_dir": model_dir,
