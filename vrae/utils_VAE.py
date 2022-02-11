@@ -192,7 +192,7 @@ def recon(model, dataset):
     return reconstruction
 
 
-def plot_recon_single(dataset, reconstruction, idx=None):
+def plot_recon_single(dataset, reconstruction, idx=None, save_filename=None):
     """
     Plot the original and reconstructed feature of one segment.
 
@@ -227,10 +227,15 @@ def plot_recon_single(dataset, reconstruction, idx=None):
         f"Original ({original_color_english}) and reconstruction ({recon_color_english}) of segment #{idx+1}",
         size=20,
     )
+    if save_filename:
+        plt.savefig(save_filename)
+        plt.close()
     plt.show()
 
 
-def plot_recon_long(X, reconstruction, xlim=[10000, 10500], label=None):
+def plot_recon_long(
+    X, reconstruction, xlim=[10000, 10500], label=None, save_filename=None
+):
     """
     Plot the original and reconstructed trace.
 
@@ -288,6 +293,9 @@ def plot_recon_long(X, reconstruction, xlim=[10000, 10500], label=None):
         f"Original ({original_color_english}) and reconstruction ({recon_color_english})",
         size=20,
     )
+    if save_filename:
+        plt.savefig(save_filename)
+        plt.close()
     plt.show()
 
 
@@ -419,7 +427,9 @@ def pca_inverse(PCA_obj, reconstruction):
     return recon_channel
 
 
-def visualize(z_run, y, inv_bhvs, one_in=4, perplexity=80, n_iter=3000):
+def visualize(
+    z_run, y, inv_bhvs, one_in=4, perplexity=80, n_iter=3000, save_filename=None
+):
     """
     Visualize latent space using PCA and tSNE
 
@@ -471,4 +481,8 @@ def visualize(z_run, y, inv_bhvs, one_in=4, perplexity=80, n_iter=3000):
     axs[1].set_title("tSNE on z_run")
     axs[0].legend()
     axs[1].legend()
+
+    if save_filename:
+        plt.savefig(save_filename)
+        plt.close()
     plt.show()

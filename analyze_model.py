@@ -8,7 +8,7 @@ from vrae import utils_sm, utils_VAE
 from vrae.vrae import VRAE
 
 # load model
-model_dir = r"E:\sam\timeseries-clustering-vae\model_dir\model1"
+model_dir = r"E:\sam\timeseries-clustering-vae\model_dir\model2"
 data_dir = r"E:\sam\anipose_out"
 
 params = None
@@ -59,8 +59,12 @@ print(f"Training data shape: {X.shape}")
 # plot reconstruction of training data
 reconstruction = utils_VAE.recon(vrae, X)
 
-utils_VAE.plot_recon_long(X, reconstruction)
-utils_VAE.plot_recon_single(X, reconstruction)
+utils_VAE.plot_recon_long(
+    X, reconstruction, save_filename=os.path.join(model_dir, "recon_long.png")
+)
+utils_VAE.plot_recon_single(
+    X, reconstruction, save_filename=os.path.join(model_dir, "recon_single.png")
+)
 
 # plot reconstruction metrics
 corr_mean, mse_mean, mean_mean = utils_VAE.plot_recon_metrics(
@@ -78,7 +82,8 @@ plt.plot(term3, label="term3-contrast")
 plt.legend()
 plt.xlabel("# channel")
 plt.title("Reconstruction metrics")
-plt.show()
+plt.savefig(os.path.join(model_dir, "recon_metrics.png"))
+plt.close()
 
 # plot reconstruction of test data
 
@@ -86,4 +91,9 @@ plt.show()
 z_run = vrae.transform(TensorDataset(torch.from_numpy(X)))
 fake_labels = np.zeros((X.shape[0]))
 fake_behaviors = {0: "all"}
-utils_VAE.visualize(z_run, fake_labels, fake_behaviors)
+utils_VAE.visualize(
+    z_run,
+    fake_labels,
+    fake_behaviors,
+    save_filename=os.path.join(model_dir, "latent_space.png"),
+)
