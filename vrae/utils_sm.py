@@ -78,7 +78,7 @@ def load_single_file(pose_path, limb_dict_path, seq_len, window_slide):
 
 
 def load_training_data(
-    data_dir, batch_size=32, seq_len=250, window_slide=250, trim=True
+    data_dir, batch_size=32, seq_len=250, window_slide=250, trim=True, lengths=False
 ):
     """
     Load dataset and preprocess.
@@ -95,12 +95,14 @@ def load_training_data(
                 with frame rate of 125/s so we choose 250.
     window_slide: the number of frames to slide between each window
     trim: if true, remove the extra part that can't be divided by batch size.
+    lengths: return the number of observations (segments*seq length) for each file
 
     Return:
     x_train: data in segments x seq length x features ndarray.
     """
     # get all the files
     all_x_train = []
+    lengths = []
     for f in os.scandir(data_dir):
         if f.name.endswith("npy"):
             limbs_file = f.name.replace("npy", "pickle")
@@ -108,9 +110,9 @@ def load_training_data(
             limbs_path = os.path.join(data_dir, limbs_file)
             if not os.path.exists(limbs_path):
                 continue
-            all_x_train.append(
-                load_single_file(f.path, limbs_path, seq_len, window_slide)
-            )
+            single_x_train = load_single_file(f.path, limbs_path, seq_len, window_slide)
+            all_x_train.append(single_x_train)
+            lengths.append(single_x_train.shape[0] * single_x_train.shape[1])
 
     if not all_x_train:
         return
@@ -118,9 +120,14 @@ def load_training_data(
     x_train = np.vstack(all_x_train)
 
     if trim:
-        return x_train[: (x_train.shape[0] // batch_size) * batch_size, :, :]
-    else:
-        return x_train
+        if lengths:
+            batch_rows = (x_train.shape[0] // batch_size) * batch_size
+            lengths[-1] -= np.sum(lengths) - (batch_rows * seq_len)
+            return (x_train[:batch_rows, :, :], lengths)
+        return x_train[:batch_rows, :, :]
+    if lengths:
+        return x_train, lengths
+    return x_train
 
 
 if __name__ == "__main__":
