@@ -14,9 +14,14 @@ def compute_limb_distance(poses, limb1, limb2, limb_dict):
     return np.linalg.norm(poses[limb_dict[limb1]] - poses[limb_dict[limb2]], axis=0)
 
 
-def window_data(data, window_length, window_slide):
+def window_data(data, window_length, window_slide, pad):
     """window 2D data that has time along the rows and features along the columns.
     Data will be returned in the shape n_windows x window_length x n_features."""
+    # pad the beginning and end of the sequence so that we have
+    # window_length/2 points before the first point and after the last point
+    if pad:
+        pad_width = int(np.ceil(window_length / 2))
+        data = np.pad(data, ((pad_width, pad_width - 1), (0, 0)), mode="reflect")
     if window_slide < 1:
         print("space_between_windows must be >= 1")
         return None
@@ -37,7 +42,7 @@ def window_data(data, window_length, window_slide):
     )
 
 
-def load_single_file(pose_path, limb_dict_path, seq_len, window_slide):
+def load_single_file(pose_path, limb_dict_path, seq_len, window_slide, pad):
     # load the np array
     # now is limbs x coordinates x timepoints
     raw_data = np.load(pose_path)
@@ -74,11 +79,17 @@ def load_single_file(pose_path, limb_dict_path, seq_len, window_slide):
     x_train = np.hstack((x_train, distances))
 
     # finally is n_windows x seq_length x n_features
-    return window_data(x_train, seq_len, window_slide)
+    return window_data(x_train, seq_len, window_slide, pad)
 
 
 def load_training_data(
-    data_dir, batch_size=32, seq_len=250, window_slide=250, trim=True, lengths=False
+    data_dir,
+    batch_size=32,
+    seq_len=250,
+    window_slide=250,
+    trim=True,
+    return_lengths=False,
+    pad=False,
 ):
     """
     Load dataset and preprocess.
@@ -96,6 +107,7 @@ def load_training_data(
     window_slide: the number of frames to slide between each window
     trim: if true, remove the extra part that can't be divided by batch size.
     lengths: return the number of observations (segments*seq length) for each file
+    pad: whether to pad the begining and end of the sequence with seq_length/2 points
 
     Return:
     x_train: data in segments x seq length x features ndarray.
@@ -110,9 +122,14 @@ def load_training_data(
             limbs_path = os.path.join(data_dir, limbs_file)
             if not os.path.exists(limbs_path):
                 continue
-            single_x_train = load_single_file(f.path, limbs_path, seq_len, window_slide)
+            single_x_train = load_single_file(
+                f.path, limbs_path, seq_len, window_slide, pad
+            )
             all_x_train.append(single_x_train)
             lengths.append(single_x_train.shape[0] * single_x_train.shape[1])
+
+    # during inference, if the total length isn't divisibly by the batch size then we wont get a prediction for each frame
+    # maybe pad the end to make it divisible by the batch size
 
     if not all_x_train:
         return
@@ -120,21 +137,22 @@ def load_training_data(
     x_train = np.vstack(all_x_train)
 
     if trim:
-        if lengths:
-            batch_rows = (x_train.shape[0] // batch_size) * batch_size
+        batch_rows = (x_train.shape[0] // batch_size) * batch_size
+
+        if return_lengths:
             lengths[-1] -= np.sum(lengths) - (batch_rows * seq_len)
             return (x_train[:batch_rows, :, :], lengths)
         return x_train[:batch_rows, :, :]
-    if lengths:
+    if return_lengths:
         return x_train, lengths
     return x_train
 
 
 if __name__ == "__main__":
-    test_window_slide = 10
+    test_window_slide = 1
     data_dir = r"/media/storage/sam/anipose_out"
     data_dir = r"E:\sam\anipose_out"
-    x_t = load_training_data(data_dir, window_slide=test_window_slide)
+    x_t = load_training_data(data_dir, window_slide=test_window_slide, pad=True)
     if x_t is not None:
         print(x_t.shape)
         # np.save(f"slide{test_window_slide}", x_t)
