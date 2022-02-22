@@ -2,7 +2,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from vrae.vrae import VRAE
 from vrae import utils_sm
@@ -28,18 +28,18 @@ while os.path.exists(f"{model_dir}{model_i}"):
 model_dir = f"{model_dir}{model_i}"
 
 # Hyper parameters
-seq_len = 250
-window_slide = 10  # options: int >= 0
+seq_len = 200
+window_slide = 5  # options: int >= 0
 hidden_size = 256
 hidden_layer_depth = 3
-latent_length = 16
+latent_length = 24
 batch_size = 32
 learning_rate = 0.00002
-n_epochs = 700
+n_epochs = 1000
 dropout_rate = 0.0
 optimizer = "Adam"  # options: ADAM, SGD
 cuda = True  # options: True, False
-print_every = 5
+print_every = 50
 val_every = 1000
 clip = True  # options: True, False
 max_grad_norm = 5
@@ -49,6 +49,7 @@ output = False
 reduction = "mean"
 trim = True
 checkpoint_every = 50
+pad = True
 
 # Load training data
 X = utils_sm.load_training_data(
@@ -57,6 +58,7 @@ X = utils_sm.load_training_data(
     seq_len=seq_len,
     window_slide=window_slide,
     trim=trim,
+    pad=pad,
 )
 print(f"Training data shape: {X.shape}")
 dataset = TensorDataset(torch.from_numpy(X))
@@ -102,6 +104,41 @@ vrae = VRAE(
 
 # Training model:
 time_training_started = time.strftime("%m%d%Y-%H%M%S")
+
+# Save training hyperparameters
+print("Saving training hyper-parameters...")
+filename = f"params_{time_training_started}.pickle"
+hyper_params_dict = {
+    "model_dir": model_dir,
+    "data_dir": data_dir,
+    "seq_len": seq_len,
+    "window_slide": window_slide,
+    "hidden_size": hidden_size,
+    "hidden_layer_depth": hidden_layer_depth,
+    "latent_length": latent_length,
+    "batch_size": batch_size,
+    "learning_rate": learning_rate,
+    "n_epochs": n_epochs,
+    "dropout_rate": dropout_rate,
+    "optimizer": optimizer,
+    "cuda": cuda,
+    "print_every": print_every,
+    "val_every": val_every,
+    "clip": clip,
+    "max_grad_norm": max_grad_norm,
+    "loss": loss,
+    "block": block,
+    "output": output,
+    "reduction": reduction,
+    "n_segments": X.shape[0],
+    "n_features": n_features,
+    "trim": trim,
+    "pad": pad,
+}
+if not os.path.exists(model_dir):
+    os.mkdir(model_dir)
+utils_sm.save_hyperparams(os.path.join(model_dir, filename), hyper_params_dict)
+
 print_fmt = "%X"
 started = time.strftime(print_fmt)
 print(f"Starting training: {started}")
@@ -123,8 +160,6 @@ plt.semilogy(vrae.recon_loss, color="b", alpha=0.5, label="recon mse")
 plt.semilogy(vrae.kl_loss, color="k", alpha=0.5, label="KL")
 plt.legend()
 
-if not os.path.exists(model_dir):
-    os.mkdir(model_dir)
 plt.savefig(os.path.join(model_dir, f"train_loss_{time_training_started}"))
 
 # plots for cross validation
@@ -185,5 +220,6 @@ hyper_params_dict = {
     "n_segments": X.shape[0],
     "n_features": n_features,
     "trim": trim,
+    "pad": pad,
 }
 utils_sm.save_hyperparams(os.path.join(model_dir, filename), hyper_params_dict)
