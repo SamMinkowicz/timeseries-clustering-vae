@@ -7,3 +7,8 @@ vrae/__pycache__/
 
 model_dir/*
 
+\__pycache__
+
+*.png
+*.npy
+*.npz
