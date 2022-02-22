@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pickle
 from wavelet import findWavelets
+import cupy as cp
 
 
 def save_hyperparams(out_path, hyper_params_dict):
@@ -109,7 +110,7 @@ def load_single_file(
     )
 
     if only_freq:
-        return window_data(wavelet_amplitudes, seq_len, window_slide, pad)
+        return window_data(cp.asnumpy(wavelet_amplitudes), seq_len, window_slide, pad)
 
     x_train = np.hstack((x_train, wavelet_amplitudes))
 
