@@ -134,6 +134,7 @@ hyper_params_dict = {
     "n_features": n_features,
     "trim": trim,
     "pad": pad,
+    "notes": "any additional notes",
 }
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)
@@ -191,35 +192,3 @@ print(f"latent vector shape: {z_run.shape}")
 # ### Save model
 print("Saving trained model...")
 vrae.save(f"vrae_{time_training_started}.pth")
-
-# Save training hyperparameters
-print("Saving training hyper-parameters...")
-filename = f"params_{time_training_started}.pickle"
-hyper_params_dict = {
-    "model_dir": model_dir,
-    "data_dir": data_dir,
-    "seq_len": seq_len,
-    "window_slide": window_slide,
-    "hidden_size": hidden_size,
-    "hidden_layer_depth": hidden_layer_depth,
-    "latent_length": latent_length,
-    "batch_size": batch_size,
-    "learning_rate": learning_rate,
-    "n_epochs": n_epochs,
-    "dropout_rate": dropout_rate,
-    "optimizer": optimizer,
-    "cuda": cuda,
-    "print_every": print_every,
-    "val_every": val_every,
-    "clip": clip,
-    "max_grad_norm": max_grad_norm,
-    "loss": loss,
-    "block": block,
-    "output": output,
-    "reduction": reduction,
-    "n_segments": X.shape[0],
-    "n_features": n_features,
-    "trim": trim,
-    "pad": pad,
-}
-utils_sm.save_hyperparams(os.path.join(model_dir, filename), hyper_params_dict)
