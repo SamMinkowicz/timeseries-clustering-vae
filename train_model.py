@@ -1,8 +1,9 @@
 # Set which gpu to use
 import os
 
+GPU_TO_USE = 0
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = f"{GPU_TO_USE}"
 
 from vrae.vrae import VRAE
 from vrae import utils_sm
@@ -50,6 +51,12 @@ reduction = "mean"
 trim = True
 checkpoint_every = 50
 pad = True
+only_freq = True
+omega0 = 5
+num_periods = 15
+sampling_freq = 125
+max_f = 30
+min_f = 1
 
 # Load training data
 X = utils_sm.load_training_data(
@@ -59,6 +66,13 @@ X = utils_sm.load_training_data(
     window_slide=window_slide,
     trim=trim,
     pad=pad,
+    only_freq=True,
+    omega0=omega0,
+    num_periods=num_periods,
+    sampling_freq=sampling_freq,
+    max_f=max_f,
+    min_f=min_f,
+    gpu=GPU_TO_USE,
 )
 print(f"Training data shape: {X.shape}")
 dataset = TensorDataset(torch.from_numpy(X))
@@ -134,7 +148,13 @@ hyper_params_dict = {
     "n_features": n_features,
     "trim": trim,
     "pad": pad,
-    "notes": "any additional notes",
+    "only_freq": True,
+    "omega0": omega0,
+    "numPeriods": num_periods,
+    "samplingFreq": sampling_freq,
+    "maxF": max_f,
+    "minF": min_f,
+    "notes": "",
 }
 if not os.path.exists(model_dir):
     os.mkdir(model_dir)

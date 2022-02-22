@@ -43,7 +43,20 @@ def window_data(data, window_length, window_slide, pad):
     )
 
 
-def load_single_file(pose_path, limb_dict_path, seq_len, window_slide, pad, only_freq):
+def load_single_file(
+    pose_path,
+    limb_dict_path,
+    seq_len,
+    window_slide,
+    pad,
+    only_freq,
+    omega0,
+    num_periods,
+    sampling_freq,
+    max_f,
+    min_f,
+    gpu,
+):
     # load the np array
     # now is limbs x coordinates x timepoints
     raw_data = np.load(pose_path)
@@ -86,13 +99,13 @@ def load_single_file(pose_path, limb_dict_path, seq_len, window_slide, pad, only
     wavelet_amplitudes, _ = findWavelets(
         projections=distances,
         pcaModes=distances.shape[1],
-        omega0=5,
-        numPeriods=15,
-        samplingFreq=125,
-        maxF=30,
-        minF=1,
+        omega0=omega0,
+        numPeriods=num_periods,
+        samplingFreq=sampling_freq,
+        maxF=max_f,
+        minF=min_f,
         numProcessors=10,
-        useGPU=0,
+        useGPU=gpu,
     )
 
     if only_freq:
@@ -113,6 +126,12 @@ def load_training_data(
     return_lengths=False,
     pad=False,
     only_freq=False,
+    omega0=5,
+    num_periods=15,
+    sampling_freq=125,
+    max_f=30,
+    min_f=1,
+    gpu=0,
 ):
     """
     Load dataset and preprocess.
@@ -146,7 +165,18 @@ def load_training_data(
             if not os.path.exists(limbs_path):
                 continue
             single_x_train = load_single_file(
-                f.path, limbs_path, seq_len, window_slide, pad, only_freq
+                f.path,
+                limbs_path,
+                seq_len,
+                window_slide,
+                pad,
+                only_freq,
+                omega0,
+                num_periods,
+                sampling_freq,
+                max_f,
+                min_f,
+                gpu,
             )
             all_x_train.append(single_x_train)
             lengths.append(single_x_train.shape[0] * single_x_train.shape[1])
