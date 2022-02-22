@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pickle
+from wavelet import findWavelets
 
 
 def save_hyperparams(out_path, hyper_params_dict):
@@ -42,7 +43,7 @@ def window_data(data, window_length, window_slide, pad):
     )
 
 
-def load_single_file(pose_path, limb_dict_path, seq_len, window_slide, pad):
+def load_single_file(pose_path, limb_dict_path, seq_len, window_slide, pad, only_freq):
     # load the np array
     # now is limbs x coordinates x timepoints
     raw_data = np.load(pose_path)
@@ -60,13 +61,15 @@ def load_single_file(pose_path, limb_dict_path, seq_len, window_slide, pad):
     x_train = np.hstack((x_train, difference))
     n_features *= 2
 
-    # add distance features
+    # add limb distance features
     with open(limb_dict_path, "rb") as f:
         limb_dict = pickle.load(f)
 
     pairs = [
+        ("l_paw", "snout"),
         ("l_paw", "l_eye"),
         ("l_paw", "l_ear"),
+        ("r_paw", "snout"),
         ("r_paw", "r_eye"),
         ("r_paw", "r_ear"),
     ]
@@ -77,6 +80,25 @@ def load_single_file(pose_path, limb_dict_path, seq_len, window_slide, pad):
         distances[:, i] = compute_limb_distance(raw_data, pair[0], pair[1], limb_dict)
 
     x_train = np.hstack((x_train, distances))
+
+    # add frequency features
+    # add spatiotemporal frequency components from the paw snout, paw eye, and paw ear distances
+    wavelet_amplitudes, _ = findWavelets(
+        projections=distances,
+        pcaModes=distances.shape[1],
+        omega0=5,
+        numPeriods=15,
+        samplingFreq=125,
+        maxF=30,
+        minF=1,
+        numProcessors=10,
+        useGPU=0,
+    )
+
+    if only_freq:
+        return window_data(wavelet_amplitudes, seq_len, window_slide, pad)
+
+    x_train = np.hstack((x_train, wavelet_amplitudes))
 
     # finally is n_windows x seq_length x n_features
     return window_data(x_train, seq_len, window_slide, pad)
@@ -90,6 +112,7 @@ def load_training_data(
     trim=True,
     return_lengths=False,
     pad=False,
+    only_freq=False,
 ):
     """
     Load dataset and preprocess.
@@ -123,7 +146,7 @@ def load_training_data(
             if not os.path.exists(limbs_path):
                 continue
             single_x_train = load_single_file(
-                f.path, limbs_path, seq_len, window_slide, pad
+                f.path, limbs_path, seq_len, window_slide, pad, only_freq
             )
             all_x_train.append(single_x_train)
             lengths.append(single_x_train.shape[0] * single_x_train.shape[1])
@@ -149,10 +172,12 @@ def load_training_data(
 
 
 if __name__ == "__main__":
-    test_window_slide = 1
+    test_window_slide = 5
     data_dir = r"/media/storage/sam/anipose_out"
     data_dir = r"E:\sam\anipose_out"
-    x_t = load_training_data(data_dir, window_slide=test_window_slide, pad=True)
+    x_t = load_training_data(
+        data_dir, window_slide=test_window_slide, pad=True, only_freq=True
+    )
     if x_t is not None:
         print(x_t.shape)
         # np.save(f"slide{test_window_slide}", x_t)
