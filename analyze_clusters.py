@@ -1,4 +1,3 @@
-from cgi import test
 import os
 import pickle
 
@@ -26,7 +25,9 @@ def load_params(model_dir):
     return params
 
 
-def load_gmm_results(model_dir, merge_method):
+def load_gmm_results(model_dir, merge_method=None):
+    if not merge_method:
+        return np.load(os.path.join(model_dir, "gmm_labels.npy"))
     merge_methods = ["kneed", "piecewise"]
     if merge_method not in merge_methods:
         raise ValueError(f"merge method must be one of {merge_methods}")
@@ -178,17 +179,34 @@ def get_gmm_clusters(model_dir):
     return gmm_labels
 
 
-def plot_bout_lengths(bouts, n_rows, n_cols):
+def plot_bout_lengths_together(bouts, out_filename=None):
     """
     plot distribution of bout lengths. Plots bout lengths for all clusters together
     and then each separate.
     """
     # plot distribution of cluster bout lengths
-    # all_bout_lengths = np.hstack(bouts.values())
-    # plt.hist(all_bout_lengths, bins=500)
-    # plt.title("all bout lengths")
-    # plt.xlabel("Bout length")
-    # plt.show()
+    all_bout_lengths = np.hstack(bouts.values())
+    plt.hist(all_bout_lengths, bins=500)
+    plt.title("all bout lengths")
+    plt.xlabel("Bout length")
+    if out_filename:
+        plt.savefig(out_filename)
+        plt.close()
+    else:
+        plt.show()
+
+
+def plot_bout_lengths_separate(bouts, n_rows, n_cols, out_filename=None):
+    """
+    plot distribution of bout lengths. Plots bout lengths for all clusters together
+    and then each separate.
+    """
+    # plot distribution of cluster bout lengths
+    all_bout_lengths = np.hstack(bouts.values())
+    plt.hist(all_bout_lengths, bins=500)
+    plt.title("all bout lengths")
+    plt.xlabel("Bout length")
+    plt.show()
 
     # plot distribution of cluster bout lengths separately for each cluster
     cluster = 0
@@ -202,7 +220,11 @@ def plot_bout_lengths(bouts, n_rows, n_cols):
             axs[row, col].hist(bouts[cluster])
             cluster += 1
     plt.tight_layout()
-    plt.show()
+    if out_filename:
+        plt.savefig(out_filename)
+        plt.close()
+    else:
+        plt.show()
 
 
 def plot_motif_usage(labels, out_filename=None):
@@ -441,32 +463,25 @@ def plot_cluster_examples(labels, n_plots, out_dir, raw=True):
             )
 
 
-plot_cluster_examples(
-    get_gmm_clusters(MODEL_DIR),
-    5,
-    os.path.join(MODEL_DIR, "gmm_cluster_gifs"),
-    raw=True,
-)
-plot_cluster_examples(
-    get_gmm_clusters(MODEL_DIR),
-    5,
-    os.path.join(MODEL_DIR, "gmm_cluster_gifs"),
-    raw=False,
-)
-
-
 def plot_all_bout_lengths():
-    gmm_labels = get_gmm_clusters(MODEL_DIR)
+    gmm_labels = load_gmm_results(MODEL_DIR)
     bouts = get_bout_lengths(gmm_labels)
-    plot_bout_lengths(bouts, 11, 5)
+    plot_bout_lengths_together(bouts, os.path.join(MODEL_DIR, "gmm_bout_lengths.png"))
+    # plot_bout_lengths_separate(bouts, 11, 5)
 
     kneed_merged = load_gmm_results(MODEL_DIR, "kneed")["merged_labels"]
     kneed_bouts = get_bout_lengths(kneed_merged)
-    plot_bout_lengths(kneed_bouts, 6, 4)
+    plot_bout_lengths_together(
+        kneed_bouts, os.path.join(MODEL_DIR, "kneed_bout_lengths.png")
+    )
+    # plot_bout_lengths_separate(kneed_bouts, 6, 4)
 
     piece_merged = load_gmm_results(MODEL_DIR, "piecewise")["merged_labels"]
     piece_bouts = get_bout_lengths(piece_merged)
-    plot_bout_lengths(piece_bouts, 8, 5)
+    plot_bout_lengths_together(
+        piece_bouts, os.path.join(MODEL_DIR, "piecewise_bout_lengths.png")
+    )
+    # plot_bout_lengths_separate(piece_bouts, 8, 5)
 
 
 def plot_all_usage():
@@ -474,7 +489,7 @@ def plot_all_usage():
     plot the usage percent for each motif for the gmm labels
     and for the labels after the two types of merging
     """
-    gmm_labels = get_gmm_clusters(MODEL_DIR)
+    gmm_labels = load_gmm_results(MODEL_DIR)
     kneed_merged = load_gmm_results(MODEL_DIR, "kneed")["merged_labels"]
     piece_merged = load_gmm_results(MODEL_DIR, "piecewise")["merged_labels"]
     labels = [gmm_labels, kneed_merged, piece_merged]
@@ -491,4 +506,85 @@ def plot_all_usage():
         plot_motif_usage(labels[i], filenames[i])
 
 
-# if __name__ == "__main__":
+def filter_repeats(bouts):
+    """
+    remove repeated elements from the array. keep order.
+    Example: [1, 2, 2, 3, 2, 2, 1, 3, 3, 4] -> [1, 2, 3, 2, 1, 3, 4]
+    """
+    new = []
+    for i, bout in enumerate(bouts):
+        if i == 0:
+            new.append(bout)
+            continue
+
+        if bout == new[-1]:
+            continue
+
+        new.append(bout)
+
+    return new
+
+
+def construct_bout_transition_matrix(bouts):
+    """
+    construct a transition matrix containing the probability of transitioning
+    between bouts
+    """
+    n_states = np.unique(bouts).size
+    t_matrix = np.zeros((n_states, n_states))
+
+    # count transitions
+    for i, j in zip(bouts, bouts[1:]):
+        # bouts start at 1
+        t_matrix[i - 1, j - 1] += 1
+
+    # convert to probabilities
+    t_sum = t_matrix.sum(axis=1)[:, np.newaxis]
+    t_matrix /= t_sum
+    return np.round(t_matrix, 2)
+
+
+def identify_cycles(t_matrix):
+    """
+    check whether there are cycles where there is a high probability of transitioning from bout i to bout j and
+    also from bout j to bout i
+    """
+    i_to_j = t_matrix.argmax(axis=1)
+    all_p = []
+    matching = 0
+    for i, highest in enumerate(i_to_j):
+        all_p.append((t_matrix[i, highest], t_matrix[highest, i]))
+
+        if i == t_matrix[highest, :].argmax():
+            matching += 1
+
+    print(f"{100*np.round(matching / len(i_to_j), 2)} percent matching")
+
+
+def plot_transition_matrix(matrix):
+    plt.imshow(matrix)
+    plt.colorbar()
+    plt.axis("off")
+    plt.show()
+
+
+if __name__ == "__main__":
+    # bouts = load_gmm_results(MODEL_DIR)
+    # filtered = filter_repeats(bouts)
+    # t_m = construct_bout_transition_matrix(filtered)
+    # identify_cycles(t_m)
+    # plot_transition_matrix(t_m)
+    # plot_all_bout_lengths()
+
+    # plot_cluster_examples(
+    #     get_gmm_clusters(MODEL_DIR),
+    #     5,
+    #     os.path.join(MODEL_DIR, "gmm_cluster_gifs"),
+    #     raw=True,
+    # )
+    # plot_cluster_examples(
+    #     get_gmm_clusters(MODEL_DIR),
+    #     5,
+    #     os.path.join(MODEL_DIR, "gmm_cluster_gifs"),
+    #     raw=False,
+    # )
